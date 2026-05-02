@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
+import { useNavigate } from 'react-router-dom';
 
 function PlayersList() {
   const [players, setPlayers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
+  const navigate = useNavigate();
 
   async function loadPlayers() {
     setLoading(true);
@@ -48,8 +50,8 @@ function PlayersList() {
           <p>Listado de atletas registrados en el club.</p>
         </div>
 
-        <button className="primary-button">
-          Nuevo jugador
+        <button className="primary-button" onClick={() => navigate('/players/new')}>
+        Nuevo jugador
         </button>
       </div>
 
@@ -72,25 +74,40 @@ function PlayersList() {
                 <th>Nombre</th>
                 <th>DNI</th>
                 <th>Categoría</th>
-                <th>Estado</th>
+                <th>Cuota</th>
+                <th>Último pago</th>
                 <th>Fecha de alta</th>
+                <th>Acciones</th>
               </tr>
             </thead>
-            <tbody>
-              {players.map((player) => (
-                <tr key={player.id}>
-                  <td>{player.full_name || '-'}</td>
-                  <td>{player.dni || '-'}</td>
-                  <td>{player.category || '-'}</td>
-                  <td>{player.status || '-'}</td>
-                  <td>
-                    {player.created_at
-                      ? new Date(player.created_at).toLocaleDateString('es-AR')
-                      : '-'}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
+              <tbody>
+                {players.map((player) => (
+                  <tr key={player.id}>
+                    <td>{`${player.first_name || ''} ${player.last_name || ''}`.trim() || '-'}</td>
+                    <td>{player.dni || '-'}</td>
+                    <td>{player.category || '-'}</td>
+                    <td>{player.payment_status ? 'Al día' : 'Pendiente'}</td>
+                    <td>
+                      {player.last_payment_date
+                        ? new Date(player.last_payment_date).toLocaleDateString('es-AR')
+                        : '-'}
+                    </td>
+                    <td>
+                      {player.created_at
+                        ? new Date(player.created_at).toLocaleDateString('es-AR')
+                        : '-'}
+                    </td>
+                    <td>
+                      <button
+                        className="secondary-button small-button"
+                        onClick={() => navigate(`/players/${player.id}/edit`)}
+                      >
+                        Editar
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
           </table>
         </div>
       )}
