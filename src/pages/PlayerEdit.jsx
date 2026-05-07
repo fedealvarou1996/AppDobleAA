@@ -1,6 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
+import {
+  isFutureDate,
+  isValidEmail,
+  normalizeText,
+  PLAYER_CATEGORIES,
+} from '../utils/playerValidations';
 
 function PlayerEdit() {
   const { id } = useParams();
@@ -43,7 +49,7 @@ function PlayerEdit() {
       }
 
       if (!data) {
-        setErrorMessage('No se encontró el jugador.');
+        setErrorMessage('No se encontro el jugador.');
         setLoading(false);
         return;
       }
@@ -77,35 +83,103 @@ function PlayerEdit() {
     }));
   }
 
+  async function validateForm() {
+    const firstName = normalizeText(formData.first_name);
+    const lastName = normalizeText(formData.last_name);
+    const dni = normalizeText(formData.dni);
+    const email = normalizeText(formData.email);
+    const category = normalizeText(formData.category);
+
+    if (!firstName) {
+      setErrorMessage('El nombre es obligatorio.');
+      return false;
+    }
+
+    if (!lastName) {
+      setErrorMessage('El apellido es obligatorio.');
+      return false;
+    }
+
+    if (!dni) {
+      setErrorMessage('El DNI es obligatorio.');
+      return false;
+    }
+
+    if (!category) {
+      setErrorMessage('La categoria es obligatoria.');
+      return false;
+    }
+
+    if (email && !isValidEmail(email)) {
+      setErrorMessage('El email no tiene un formato valido.');
+      return false;
+    }
+
+    if (formData.birth_date && isFutureDate(formData.birth_date)) {
+      setErrorMessage('La fecha de nacimiento no puede ser futura.');
+      return false;
+    }
+
+    const { data, error } = await supabase
+      .from('players')
+      .select('id')
+      .eq('dni', dni)
+      .neq('id', id)
+      .limit(1);
+
+    if (error) {
+      console.error('Error validando DNI:', error);
+      setErrorMessage('No se pudo validar el DNI. Intenta nuevamente.');
+      return false;
+    }
+
+    if (data && data.length > 0) {
+      setErrorMessage('Ya existe otro jugador con ese DNI.');
+      return false;
+    }
+
+    return true;
+  }
+
   async function handleSubmit(e) {
     e.preventDefault();
 
     setSaving(true);
     setErrorMessage('');
 
+    const isValid = await validateForm();
+
+    if (!isValid) {
+      setSaving(false);
+      return;
+    }
+
     const payload = {
-      first_name: formData.first_name.trim(),
-      last_name: formData.last_name.trim(),
-      dni: formData.dni.trim(),
+      first_name: normalizeText(formData.first_name),
+      last_name: normalizeText(formData.last_name),
+      dni: normalizeText(formData.dni),
       birth_date: formData.birth_date || null,
-      category: formData.category.trim(),
-      phone: formData.phone.trim() || null,
-      email: formData.email.trim() || null,
-      address: formData.address.trim() || null,
+      category: normalizeText(formData.category),
+      phone: normalizeText(formData.phone) || null,
+      email: normalizeText(formData.email) || null,
+      address: normalizeText(formData.address) || null,
       payment_status: formData.payment_status,
       last_payment_date: formData.last_payment_date || null,
-      notes: formData.notes.trim() || null,
+      notes: normalizeText(formData.notes) || null,
       updated_at: new Date().toISOString(),
     };
 
-    const { error } = await supabase
-      .from('players')
-      .update(payload)
-      .eq('id', id);
+    const { error } = await supabase.from('players').update(payload).eq('id', id);
 
     if (error) {
       console.error('Error actualizando jugador:', error);
-      setErrorMessage('No se pudo actualizar el jugador.');
+
+      if (error.code === '23505') {
+        setErrorMessage('Ya existe un jugador con ese DNI.');
+      } else {
+        setErrorMessage('No se pudo actualizar el jugador.');
+      }
+
       setSaving(false);
       return;
     }
@@ -128,7 +202,7 @@ function PlayerEdit() {
       <div className="page-header">
         <div>
           <h1>Editar jugador</h1>
-          <p>Modificá los datos del atleta.</p>
+          <p>Modifica los datos del atleta.</p>
         </div>
 
         <button className="secondary-button" onClick={() => navigate('/players')}>
@@ -136,42 +210,23 @@ function PlayerEdit() {
         </button>
       </div>
 
-      {errorMessage && (
-        <div className="alert alert-error">
-          {errorMessage}
-        </div>
-      )}
+      {errorMessage && <div className="alert alert-error">{errorMessage}</div>}
 
       <form className="form-card" onSubmit={handleSubmit}>
         <div className="form-grid">
           <div className="form-field">
             <label>Nombre</label>
-            <input
-              name="first_name"
-              value={formData.first_name}
-              onChange={handleChange}
-              required
-            />
+            <input name="first_name" value={formData.first_name} onChange={handleChange} />
           </div>
 
           <div className="form-field">
             <label>Apellido</label>
-            <input
-              name="last_name"
-              value={formData.last_name}
-              onChange={handleChange}
-              required
-            />
+            <input name="last_name" value={formData.last_name} onChange={handleChange} />
           </div>
 
           <div className="form-field">
             <label>DNI</label>
-            <input
-              name="dni"
-              value={formData.dni}
-              onChange={handleChange}
-              required
-            />
+            <input name="dni" value={formData.dni} onChange={handleChange} />
           </div>
 
           <div className="form-field">
@@ -185,44 +240,34 @@ function PlayerEdit() {
           </div>
 
           <div className="form-field">
-            <label>Categoría</label>
-            <input
-              name="category"
-              value={formData.category}
-              onChange={handleChange}
-            />
+            <label>Categoria</label>
+            <select name="category" value={formData.category} onChange={handleChange}>
+              <option value="">Seleccionar categoria</option>
+              {PLAYER_CATEGORIES.map((category) => (
+                <option key={category} value={category}>
+                  {category}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div className="form-field">
-            <label>Teléfono</label>
-            <input
-              name="phone"
-              value={formData.phone}
-              onChange={handleChange}
-            />
+            <label>Telefono</label>
+            <input name="phone" value={formData.phone} onChange={handleChange} />
           </div>
 
           <div className="form-field">
             <label>Email</label>
-            <input
-              type="email"
-              name="email"
-              value={formData.email}
-              onChange={handleChange}
-            />
+            <input type="text" name="email" value={formData.email} onChange={handleChange} />
           </div>
 
           <div className="form-field">
-            <label>Dirección</label>
-            <input
-              name="address"
-              value={formData.address}
-              onChange={handleChange}
-            />
+            <label>Direccion</label>
+            <input name="address" value={formData.address} onChange={handleChange} />
           </div>
 
           <div className="form-field">
-            <label>Último pago</label>
+            <label>Ultimo pago</label>
             <input
               type="date"
               name="last_payment_date"
@@ -239,19 +284,14 @@ function PlayerEdit() {
                 checked={formData.payment_status}
                 onChange={handleChange}
               />
-              Cuota al día
+              Cuota al dia
             </label>
           </div>
         </div>
 
         <div className="form-field">
           <label>Notas</label>
-          <textarea
-            name="notes"
-            rows="4"
-            value={formData.notes}
-            onChange={handleChange}
-          />
+          <textarea name="notes" rows="4" value={formData.notes} onChange={handleChange} />
         </div>
 
         <div className="form-actions">
@@ -263,11 +303,7 @@ function PlayerEdit() {
             Cancelar
           </button>
 
-          <button
-            type="submit"
-            className="primary-button"
-            disabled={saving}
-          >
+          <button type="submit" className="primary-button" disabled={saving}>
             {saving ? 'Guardando...' : 'Guardar cambios'}
           </button>
         </div>

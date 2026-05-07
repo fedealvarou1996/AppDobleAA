@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { supabase } from '../lib/supabaseClient';
 import { useNavigate } from 'react-router-dom';
+import { supabase } from '../lib/supabaseClient';
 
 function PlayersList() {
   const [players, setPlayers] = useState([]);
@@ -9,6 +9,7 @@ function PlayersList() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
   const [paymentFilter, setPaymentFilter] = useState('');
+  const [processingId, setProcessingId] = useState('');
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -73,8 +74,7 @@ function PlayersList() {
         fullName.toLowerCase().includes(normalizedSearch) ||
         reverseFullName.toLowerCase().includes(normalizedSearch);
 
-      const matchesCategory =
-        !selectedCategory || category === selectedCategory;
+      const matchesCategory = !selectedCategory || category === selectedCategory;
 
       const matchesPayment =
         !paymentFilter ||
@@ -89,6 +89,79 @@ function PlayersList() {
     setSearchTerm('');
     setSelectedCategory('');
     setPaymentFilter('');
+  }
+
+  async function handleToggleActive(player) {
+    const isActive = player.is_active !== false;
+    const actionLabel = isActive ? 'inactivar' : 'reactivar';
+
+    if (!window.confirm(`¿Seguro que queres ${actionLabel} este jugador?`)) {
+      return;
+    }
+
+    setProcessingId(player.id);
+    setErrorMessage('');
+
+    const { error } = await supabase
+      .from('players')
+      .update({
+        is_active: !isActive,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', player.id);
+
+    if (error) {
+      console.error(`Error al ${actionLabel} jugador:`, error);
+      setErrorMessage(
+        'No se pudo actualizar el estado del jugador. Verifica que exista la columna is_active en players.'
+      );
+      setProcessingId('');
+      return;
+    }
+
+    setPlayers((prev) =>
+      prev.map((currentPlayer) =>
+        currentPlayer.id === player.id
+          ? {
+              ...currentPlayer,
+              is_active: !isActive,
+              updated_at: new Date().toISOString(),
+            }
+          : currentPlayer
+      )
+    );
+    setProcessingId('');
+  }
+
+  async function handleDelete(player) {
+    const fullName =
+      `${player.first_name || ''} ${player.last_name || ''}`.trim() ||
+      'este jugador';
+
+    if (
+      !window.confirm(
+        `¿Seguro que queres eliminar a ${fullName}? Esta accion no se puede deshacer.`
+      )
+    ) {
+      return;
+    }
+
+    setProcessingId(player.id);
+    setErrorMessage('');
+
+    const { error } = await supabase.from('players').delete().eq('id', player.id);
+
+    if (error) {
+      console.error('Error eliminando jugador:', error);
+      setErrorMessage('No se pudo eliminar el jugador.');
+      setProcessingId('');
+      return;
+    }
+
+    setPlayers((prev) =>
+      prev.filter((currentPlayer) => currentPlayer.id !== player.id)
+    );
+    setProcessingId('');
   }
 
   if (loading) {
@@ -109,16 +182,15 @@ function PlayersList() {
           <p>Listado de atletas registrados en el club.</p>
         </div>
 
-        <button className="primary-button" onClick={() => navigate('/players/new')}>
-        Nuevo jugador
+        <button
+          className="primary-button"
+          onClick={() => navigate('/players/new')}
+        >
+          Nuevo jugador
         </button>
       </div>
 
-      {errorMessage && (
-        <div className="alert alert-error">
-          {errorMessage}
-        </div>
-      )}
+      {errorMessage && <div className="alert alert-error">{errorMessage}</div>}
 
       {players.length > 0 && (
         <div className="filters-card">
@@ -184,7 +256,7 @@ function PlayersList() {
       ) : filteredPlayers.length === 0 ? (
         <div className="empty-card">
           <h2>No se encontraron jugadores con esos filtros.</h2>
-          <p>Probá cambiando la búsqueda o limpiando los filtros.</p>
+          <p>Proba cambiando la busqueda o limpiando los filtros.</p>
         </div>
       ) : (
         <div className="table-card">
@@ -193,49 +265,72 @@ function PlayersList() {
               <tr>
                 <th>Nombre</th>
                 <th>DNI</th>
-                <th>Categoría</th>
+                <th>Categoria</th>
                 <th>Cuota</th>
-                <th>Último pago</th>
+                <th>Estado</th>
+                <th>Ultimo pago</th>
                 <th>Fecha de alta</th>
                 <th>Acciones</th>
               </tr>
             </thead>
-              <tbody>
-                {filteredPlayers.map((player) => (
-                  <tr key={player.id}>
-                    <td>{`${player.first_name || ''} ${player.last_name || ''}`.trim() || '-'}</td>
-                    <td>{player.dni || '-'}</td>
-                    <td>{player.category || '-'}</td>
-                    <td>{player.payment_status ? 'Al día' : 'Pendiente'}</td>
-                    <td>
-                      {player.last_payment_date
-                        ? new Date(player.last_payment_date).toLocaleDateString('es-AR')
-                        : '-'}
-                    </td>
-                    <td>
-                      {player.created_at
-                        ? new Date(player.created_at).toLocaleDateString('es-AR')
-                        : '-'}
-                    </td>
-                    <td>
-                      <div className="table-actions">
-                        <button
-                          className="secondary-button small-button"
-                          onClick={() => navigate(`/players/${player.id}`)}
-                        >
-                          Ver
-                        </button>
-                        <button
-                          className="secondary-button small-button"
-                          onClick={() => navigate(`/players/${player.id}/edit`)}
-                        >
-                          Editar
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
+            <tbody>
+              {filteredPlayers.map((player) => (
+                <tr key={player.id}>
+                  <td>
+                    {`${player.first_name || ''} ${player.last_name || ''}`.trim() ||
+                      '-'}
+                  </td>
+                  <td>{player.dni || '-'}</td>
+                  <td>{player.category || '-'}</td>
+                  <td>{player.payment_status ? 'Al dia' : 'Pendiente'}</td>
+                  <td>{player.is_active === false ? 'Inactivo' : 'Activo'}</td>
+                  <td>
+                    {player.last_payment_date
+                      ? new Date(player.last_payment_date).toLocaleDateString('es-AR')
+                      : '-'}
+                  </td>
+                  <td>
+                    {player.created_at
+                      ? new Date(player.created_at).toLocaleDateString('es-AR')
+                      : '-'}
+                  </td>
+                  <td>
+                    <div className="table-actions">
+                      <button
+                        className="secondary-button small-button"
+                        onClick={() => navigate(`/players/${player.id}`)}
+                        disabled={processingId === player.id}
+                      >
+                        Ver
+                      </button>
+                      <button
+                        className="secondary-button small-button"
+                        onClick={() => navigate(`/players/${player.id}/edit`)}
+                        disabled={processingId === player.id}
+                      >
+                        Editar
+                      </button>
+                      <button
+                        type="button"
+                        className="secondary-button small-button"
+                        onClick={() => handleToggleActive(player)}
+                        disabled={processingId === player.id}
+                      >
+                        {player.is_active === false ? 'Reactivar' : 'Inactivar'}
+                      </button>
+                      <button
+                        type="button"
+                        className="danger-button small-button"
+                        onClick={() => handleDelete(player)}
+                        disabled={processingId === player.id}
+                      >
+                        Eliminar
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
           </table>
         </div>
       )}
