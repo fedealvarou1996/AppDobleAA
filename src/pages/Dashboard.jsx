@@ -1,13 +1,15 @@
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 function Dashboard() {
   const { user, profile, isAdmin, signOut } = useAuth();
+  const navigate = useNavigate();
 
   async function handleLogout() {
     try {
       await signOut();
     } catch {
-      alert('No se pudo cerrar sesión. Probá nuevamente.');
+      alert('No se pudo cerrar sesion. Proba nuevamente.');
     }
   }
 
@@ -16,12 +18,12 @@ function Dashboard() {
       <header className="dashboard-header">
         <div>
           <p className="eyebrow">Panel administrativo</p>
-          <h1>Asociación de Atletas</h1>
-          <p className="muted">Sesión iniciada correctamente.</p>
+          <h1>Asociacion de Atletas</h1>
+          <p className="muted">Sesion iniciada correctamente.</p>
         </div>
 
         <button className="secondary-button" onClick={handleLogout}>
-          Cerrar sesión
+          Cerrar sesion
         </button>
       </header>
 
@@ -30,15 +32,30 @@ function Dashboard() {
           <h2>Usuario</h2>
           <p><strong>Email:</strong> {user?.email}</p>
           <p><strong>Rol:</strong> {profile?.role ?? 'Sin rol cargado'}</p>
-          <p><strong>Permisos admin:</strong> {isAdmin ? 'Sí' : 'No'}</p>
+          <p><strong>Permisos admin:</strong> {isAdmin ? 'Si' : 'No'}</p>
         </article>
 
-        <article className="info-card">
-          <h2>Próximo módulo</h2>
+        <article className="info-card module-card">
+          <h2>Modulo Jugadores</h2>
           <p>
-            El siguiente paso es crear el ABM de jugadores: listado, alta, edición,
-            búsqueda, filtros y subida de foto al bucket privado <strong>player-photos</strong>.
+            Administra el listado de atletas, altas, edicion, busqueda y filtros.
           </p>
+          <div className="dashboard-actions button-row">
+            <button
+              type="button"
+              className="primary-button"
+              onClick={() => navigate('/players')}
+            >
+              Gestionar jugadores
+            </button>
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={() => navigate('/players/new')}
+            >
+              Nuevo jugador
+            </button>
+          </div>
         </article>
       </section>
     </main>
