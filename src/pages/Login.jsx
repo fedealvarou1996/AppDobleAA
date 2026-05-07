@@ -4,14 +4,38 @@ import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../context/AuthContext';
 
 function Login() {
-  const { loading: authLoading, isAuthenticated } = useAuth();
+  const {
+    loading: authLoading,
+    isAuthenticated,
+    profileLoaded,
+    isAdmin,
+    isPlayer,
+  } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
 
   if (!authLoading && isAuthenticated) {
-    return <Navigate to="/dashboard" replace />;
+    if (!profileLoaded) {
+      return (
+        <div className="page-center">
+          <div className="loading-card">
+            <strong>Cargando perfil...</strong>
+          </div>
+        </div>
+      );
+    }
+
+    if (isAdmin) {
+      return <Navigate to="/dashboard" replace />;
+    }
+
+    if (isPlayer) {
+      return <Navigate to="/my-profile" replace />;
+    }
+
+    return <Navigate to="/unauthorized" replace />;
   }
 
   async function handleLogin(e) {
@@ -26,12 +50,12 @@ function Login() {
 
     if (error) {
       console.error('Error de login:', error);
-      setMessage('Email o contraseña incorrectos. Revisá los datos e intentá de nuevo.');
+      setMessage('Email o contrasena incorrectos. Revisa los datos e intenta de nuevo.');
       setLoading(false);
       return;
     }
 
-    setMessage('Inicio de sesión correcto. Redirigiendo...');
+    setMessage('Inicio de sesion correcto. Redirigiendo...');
     setLoading(false);
   }
 
@@ -39,26 +63,26 @@ function Login() {
     <main className="auth-page">
       <section className="auth-card">
         <div className="brand-badge">AA</div>
-        <h1>Asociación de Atletas</h1>
-        <p className="auth-subtitle">Ingreso al panel administrativo</p>
+        <h1>Asociacion de Atletas</h1>
+        <p className="auth-subtitle">Ingreso al sistema</p>
 
         <form onSubmit={handleLogin} className="auth-form">
           <label htmlFor="email">Email</label>
           <input
             id="email"
             type="email"
-            placeholder="admin@email.com"
+            placeholder="usuario@email.com"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             autoComplete="email"
             required
           />
 
-          <label htmlFor="password">Contraseña</label>
+          <label htmlFor="password">Contrasena</label>
           <input
             id="password"
             type="password"
-            placeholder="Tu contraseña"
+            placeholder="Tu contrasena"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             autoComplete="current-password"

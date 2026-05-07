@@ -26,12 +26,15 @@ function PlayerDetail() {
   const [player, setPlayer] = useState(null);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
   const [notFound, setNotFound] = useState(false);
+  const [inviting, setInviting] = useState(false);
 
   useEffect(() => {
     async function loadPlayer() {
       setLoading(true);
       setErrorMessage('');
+      setSuccessMessage('');
       setNotFound(false);
 
       const { data, error } = await supabase
@@ -60,6 +63,52 @@ function PlayerDetail() {
 
     loadPlayer();
   }, [id]);
+
+  async function handleInvitePlayer() {
+    if (!player?.id) return;
+
+    if (!player.email) {
+      setErrorMessage('El jugador necesita un email para poder enviar la invitacion.');
+      return;
+    }
+
+    setInviting(true);
+    setErrorMessage('');
+    setSuccessMessage('');
+
+    const { data, error } = await supabase.functions.invoke('invite-player', {
+      body: { playerId: player.id },
+    });
+
+    if (error) {
+      console.error('Error invitando jugador:', error);
+      setErrorMessage(
+        error.message || 'No se pudo enviar la invitacion del jugador.'
+      );
+      setInviting(false);
+      return;
+    }
+
+    const invitedUserId = data?.userId || null;
+
+    if (invitedUserId) {
+      setPlayer((currentPlayer) =>
+        currentPlayer
+          ? {
+              ...currentPlayer,
+              user_id: invitedUserId,
+            }
+          : currentPlayer
+      );
+    }
+
+    setSuccessMessage(
+      invitedUserId
+        ? 'Invitacion enviada y usuario vinculado correctamente.'
+        : 'Invitacion enviada correctamente.'
+    );
+    setInviting(false);
+  }
 
   if (loading) {
     return (
@@ -125,6 +174,15 @@ function PlayerDetail() {
         </div>
 
         <div className="header-actions">
+          {!player.user_id && (
+            <button
+              className="secondary-button"
+              onClick={handleInvitePlayer}
+              disabled={inviting}
+            >
+              {inviting ? 'Enviando invitacion...' : 'Invitar jugador'}
+            </button>
+          )}
           <button className="secondary-button" onClick={() => navigate('/players')}>
             Volver
           </button>
@@ -136,6 +194,9 @@ function PlayerDetail() {
           </button>
         </div>
       </div>
+
+      {errorMessage && <div className="alert alert-error">{errorMessage}</div>}
+      {successMessage && <div className="alert alert-success">{successMessage}</div>}
 
       <section className="detail-card">
         <div className="detail-grid">
@@ -167,6 +228,11 @@ function PlayerDetail() {
           <div className="detail-item">
             <span className="detail-label">Direccion</span>
             <span className="detail-value">{formatText(player.address)}</span>
+          </div>
+
+          <div className="detail-item">
+            <span className="detail-label">Usuario vinculado</span>
+            <span className="detail-value">{formatText(player.user_id)}</span>
           </div>
 
           <div className="detail-item">

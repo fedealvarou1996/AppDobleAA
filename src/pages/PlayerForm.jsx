@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import {
   isFutureDate,
   isValidEmail,
+  isValidUuid,
   normalizeText,
   PLAYER_CATEGORIES,
 } from '../utils/playerValidations';
@@ -22,6 +23,7 @@ function PlayerForm() {
     phone: '',
     email: '',
     address: '',
+    user_id: '',
     payment_status: false,
     last_payment_date: '',
     notes: '',
@@ -45,6 +47,7 @@ function PlayerForm() {
     const dni = normalizeText(formData.dni);
     const email = normalizeText(formData.email);
     const category = normalizeText(formData.category);
+    const userId = normalizeText(formData.user_id);
 
     if (!firstName) {
       setErrorMessage('El nombre es obligatorio.');
@@ -68,6 +71,11 @@ function PlayerForm() {
 
     if (email && !isValidEmail(email)) {
       setErrorMessage('El email no tiene un formato valido.');
+      return false;
+    }
+
+    if (userId && !isValidUuid(userId)) {
+      setErrorMessage('El ID de usuario vinculado no tiene un formato valido.');
       return false;
     }
 
@@ -119,6 +127,7 @@ function PlayerForm() {
       phone: normalizeText(formData.phone) || null,
       email: normalizeText(formData.email) || null,
       address: normalizeText(formData.address) || null,
+      user_id: normalizeText(formData.user_id) || null,
       payment_status: formData.payment_status,
       last_payment_date: formData.last_payment_date || null,
       notes: normalizeText(formData.notes) || null,
@@ -209,6 +218,17 @@ function PlayerForm() {
           <div className="form-field">
             <label>Direccion</label>
             <input name="address" value={formData.address} onChange={handleChange} />
+          </div>
+
+          <div className="form-field">
+            <label>ID usuario vinculado</label>
+            <input
+              type="text"
+              name="user_id"
+              placeholder="UUID del usuario player"
+              value={formData.user_id}
+              onChange={handleChange}
+            />
           </div>
 
           <div className="form-field">

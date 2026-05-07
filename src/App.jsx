@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import ProtectedRoute from './components/ProtectedRoute';
+import { useAuth } from './context/AuthContext';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Unauthorized from './pages/Unauthorized';
@@ -7,13 +8,51 @@ import PlayersList from './pages/PlayersList';
 import PlayerForm from './pages/PlayerForm';
 import PlayerEdit from './pages/PlayerEdit';
 import PlayerDetail from './pages/PlayerDetail';
+import MyPlayerProfile from './pages/MyPlayerProfile';
+
+function HomeRedirect() {
+  const { loading, profileLoaded, user, isAdmin, isPlayer } = useAuth();
+
+  if (loading || (user && !profileLoaded)) {
+    return (
+      <div className="page-center">
+        <div className="loading-card">
+          <strong>Cargando sesion...</strong>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (isAdmin) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  if (isPlayer) {
+    return <Navigate to="/my-profile" replace />;
+  }
+
+  return <Navigate to="/unauthorized" replace />;
+}
 
 function App() {
   return (
     <Routes>
-      <Route path="/" element={<Navigate to="/dashboard" replace />} />
+      <Route path="/" element={<HomeRedirect />} />
       <Route path="/login" element={<Login />} />
       <Route path="/unauthorized" element={<Unauthorized />} />
+
+      <Route
+        path="/my-profile"
+        element={
+          <ProtectedRoute requirePlayer>
+            <MyPlayerProfile />
+          </ProtectedRoute>
+        }
+      />
 
       <Route
         path="/dashboard"
