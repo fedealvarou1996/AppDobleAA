@@ -44,3 +44,15 @@ La function usa los secretos estandar del proyecto:
 - `SUPABASE_URL`
 - `SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY`
+
+## Registro de jugadores
+
+La app tambien incluye un registro directo para jugadores en `/register`.
+
+Ese flujo:
+
+- crea el usuario en Supabase Auth
+- inserta `profiles.role = 'player'`
+- inserta la ficha inicial en `players`
+
+Para que funcione con RLS, ejecuta tambien [supabase/player-invite-setup.sql](./supabase/player-invite-setup.sql) actualizado.

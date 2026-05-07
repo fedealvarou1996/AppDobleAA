@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../context/AuthContext';
 
@@ -95,6 +95,10 @@ function Login() {
         </form>
 
         {message && <p className="auth-message">{message}</p>}
+
+        <p className="auth-switch">
+          Sos jugador y no tenes cuenta? <Link to="/register">Registrate</Link>
+        </p>
       </section>
     </main>
   );

@@ -19,6 +19,26 @@ function formatText(value) {
   return value ? value : '-';
 }
 
+async function getFunctionErrorMessage(error) {
+  if (error?.context && typeof error.context.json === 'function') {
+    try {
+      const payload = await error.context.json();
+
+      if (payload?.error) {
+        return payload.error;
+      }
+
+      if (payload?.message) {
+        return payload.message;
+      }
+    } catch {
+      // Ignore parse failures and fallback to the generic error message.
+    }
+  }
+
+  return error?.message || 'No se pudo enviar la invitacion del jugador.';
+}
+
 function PlayerDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -82,9 +102,8 @@ function PlayerDetail() {
 
     if (error) {
       console.error('Error invitando jugador:', error);
-      setErrorMessage(
-        error.message || 'No se pudo enviar la invitacion del jugador.'
-      );
+      const message = await getFunctionErrorMessage(error);
+      setErrorMessage(message);
       setInviting(false);
       return;
     }

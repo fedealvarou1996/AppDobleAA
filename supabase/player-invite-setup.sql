@@ -1,7 +1,39 @@
--- Policies recomendadas para el flujo de invitacion de jugadores.
--- Ajustalas si mas adelante permitis que el player edite su propia ficha.
+-- Policies recomendadas para el flujo actual:
+-- - admins pueden gestionar todos los jugadores
+-- - players pueden registrar su propia ficha y ver solo la propia
 
 alter table public.players enable row level security;
+alter table public.profiles enable row level security;
+
+drop policy if exists "profiles_select_own_or_admin" on public.profiles;
+create policy "profiles_select_own_or_admin"
+on public.profiles
+for select
+to authenticated
+using (
+  id = auth.uid()
+  or exists (
+    select 1
+    from public.profiles as admin_profiles
+    where admin_profiles.id = auth.uid()
+      and admin_profiles.role = 'admin'
+  )
+);
+
+drop policy if exists "profiles_insert_self_or_admin" on public.profiles;
+create policy "profiles_insert_self_or_admin"
+on public.profiles
+for insert
+to authenticated
+with check (
+  (id = auth.uid() and role = 'player')
+  or exists (
+    select 1
+    from public.profiles as admin_profiles
+    where admin_profiles.id = auth.uid()
+      and admin_profiles.role = 'admin'
+  )
+);
 
 drop policy if exists "players_select_own_or_admin" on public.players;
 create policy "players_select_own_or_admin"
@@ -19,12 +51,21 @@ using (
 );
 
 drop policy if exists "players_insert_admin_only" on public.players;
-create policy "players_insert_admin_only"
+create policy "players_insert_self_or_admin"
 on public.players
 for insert
 to authenticated
 with check (
-  exists (
+  (
+    user_id = auth.uid()
+    and exists (
+      select 1
+      from public.profiles
+      where profiles.id = auth.uid()
+        and profiles.role = 'player'
+    )
+  )
+  or exists (
     select 1
     from public.profiles
     where profiles.id = auth.uid()

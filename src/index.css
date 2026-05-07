@@ -373,6 +373,10 @@ button:disabled {
   padding: 34px;
 }
 
+.auth-card-wide {
+  max-width: 760px;
+}
+
 .brand-badge {
   width: 56px;
   height: 56px;
@@ -416,6 +420,10 @@ button:disabled {
   gap: 12px;
 }
 
+.auth-form-grid {
+  margin-bottom: 8px;
+}
+
 .auth-form label {
   font-weight: 700;
   font-size: 0.92rem;
@@ -456,6 +464,30 @@ button:disabled {
 .auth-message {
   margin: 18px 0 0;
   text-align: center;
+}
+
+.auth-message-error {
+  color: #991b1b;
+}
+
+.auth-message-success {
+  color: #166534;
+}
+
+.auth-switch {
+  margin: 18px 0 0;
+  text-align: center;
+  color: #6b7280;
+}
+
+.auth-switch a {
+  color: #111827;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.auth-switch a:hover {
+  text-decoration: underline;
 }
 
 .dashboard-page {

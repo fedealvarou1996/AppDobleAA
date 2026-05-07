@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from 'react-router-dom';
 import ProtectedRoute from './components/ProtectedRoute';
 import { useAuth } from './context/AuthContext';
 import Login from './pages/Login';
+import PlayerRegister from './pages/PlayerRegister';
 import Dashboard from './pages/Dashboard';
 import Unauthorized from './pages/Unauthorized';
 import PlayersList from './pages/PlayersList';
@@ -43,6 +44,7 @@ function App() {
     <Routes>
       <Route path="/" element={<HomeRedirect />} />
       <Route path="/login" element={<Login />} />
+      <Route path="/register" element={<PlayerRegister />} />
       <Route path="/unauthorized" element={<Unauthorized />} />
 
       <Route
