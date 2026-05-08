@@ -2,10 +2,31 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 
+async function getFunctionErrorMessage(error, fallbackMessage) {
+  if (error?.context && typeof error.context.json === 'function') {
+    try {
+      const payload = await error.context.json();
+
+      if (payload?.error) {
+        return payload.error;
+      }
+
+      if (payload?.message) {
+        return payload.message;
+      }
+    } catch {
+      // Ignore parse failures and fallback to generic message.
+    }
+  }
+
+  return error?.message || fallbackMessage;
+}
+
 function PlayersList() {
   const [players, setPlayers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
   const [paymentFilter, setPaymentFilter] = useState('');
@@ -101,6 +122,7 @@ function PlayersList() {
 
     setProcessingId(player.id);
     setErrorMessage('');
+    setSuccessMessage('');
 
     const { error } = await supabase
       .from('players')
@@ -149,13 +171,25 @@ function PlayersList() {
     setProcessingId(player.id);
     setErrorMessage('');
 
-    const { error } = await supabase.from('players').delete().eq('id', player.id);
+    const { data, error } = await supabase.functions.invoke('delete-player', {
+      body: { playerId: player.id },
+    });
 
     if (error) {
       console.error('Error eliminando jugador:', error);
-      setErrorMessage('No se pudo eliminar el jugador.');
+      const message = await getFunctionErrorMessage(
+        error,
+        'No se pudo eliminar el jugador.'
+      );
+      setErrorMessage(message);
       setProcessingId('');
       return;
+    }
+
+    const responseMessage = data?.message;
+
+    if (responseMessage) {
+      setSuccessMessage(responseMessage);
     }
 
     setPlayers((prev) =>
@@ -181,16 +215,25 @@ function PlayersList() {
           <h1>Jugadores</h1>
           <p>Listado de atletas registrados en el club.</p>
         </div>
-
-        <button
-          className="primary-button"
-          onClick={() => navigate('/players/new')}
-        >
-          Nuevo jugador
-        </button>
+        <div className="header-actions">
+          <button
+            type="button"
+            className="secondary-button"
+            onClick={() => navigate('/dashboard')}
+          >
+            Volver al dashboard
+          </button>
+          <button
+            className="primary-button"
+            onClick={() => navigate('/players/new')}
+          >
+            Nuevo jugador
+          </button>
+        </div>
       </div>
 
       {errorMessage && <div className="alert alert-error">{errorMessage}</div>}
+      {successMessage && <div className="alert alert-success">{successMessage}</div>}
 
       {players.length > 0 && (
         <div className="filters-card">

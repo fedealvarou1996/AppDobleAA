@@ -107,7 +107,27 @@ function PlayerRegister() {
     }
 
     const email = normalizeText(formData.email);
+    const dni = normalizeText(formData.dni);
     const password = formData.password;
+
+    const { data: existingPlayer, error: existingPlayerError } = await supabase
+      .from('players')
+      .select('id')
+      .eq('dni', dni)
+      .limit(1);
+
+    if (existingPlayerError) {
+      console.error('Error validando DNI existente:', existingPlayerError);
+      setErrorMessage('No se pudo validar el DNI. Intenta nuevamente.');
+      setLoading(false);
+      return;
+    }
+
+    if (existingPlayer && existingPlayer.length > 0) {
+      setErrorMessage('Ya existe un jugador con ese DNI.');
+      setLoading(false);
+      return;
+    }
 
     const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
       email,
@@ -117,6 +137,11 @@ function PlayerRegister() {
           role: 'player',
           first_name: normalizeText(formData.first_name),
           last_name: normalizeText(formData.last_name),
+          dni,
+          birth_date: formData.birth_date || null,
+          category: normalizeText(formData.category),
+          phone: normalizeText(formData.phone) || null,
+          address: normalizeText(formData.address) || null,
         },
       },
     });
@@ -136,46 +161,49 @@ function PlayerRegister() {
       return;
     }
 
-    const { error: profileError } = await supabase.from('profiles').insert({
-      id: newUser.id,
-      role: 'player',
-    });
-
-    if (profileError) {
-      console.error('Error creando profile del jugador:', profileError);
-      setErrorMessage(
-        'La cuenta se creo, pero no se pudo preparar el perfil. Contacta al administrador.'
-      );
-      setLoading(false);
-      return;
-    }
-
-    const { error: playerError } = await supabase.from('players').insert({
-      profile_id: newUser.id,
-      user_id: newUser.id,
-      first_name: normalizeText(formData.first_name),
-      last_name: normalizeText(formData.last_name),
-      dni: normalizeText(formData.dni),
-      birth_date: formData.birth_date || null,
-      category: normalizeText(formData.category),
-      phone: normalizeText(formData.phone) || null,
-      email,
-      address: normalizeText(formData.address) || null,
-      payment_status: false,
-      last_payment_date: null,
-      notes: null,
-    });
-
-    if (playerError) {
-      console.error('Error creando ficha del jugador:', playerError);
-      setErrorMessage(
-        'La cuenta se creo, pero no se pudo generar la ficha tecnica. Contacta al administrador.'
-      );
-      setLoading(false);
-      return;
-    }
-
     if (signUpData.session) {
+      const { error: profileError } = await supabase.from('profiles').upsert(
+        {
+          id: newUser.id,
+          role: 'player',
+        },
+        { onConflict: 'id' }
+      );
+
+      if (profileError) {
+        console.error('Error creando profile del jugador:', profileError);
+        setErrorMessage(
+          'La cuenta se creo, pero no se pudo preparar el perfil. Contacta al administrador.'
+        );
+        setLoading(false);
+        return;
+      }
+
+      const { error: playerError } = await supabase.from('players').insert({
+        profile_id: newUser.id,
+        user_id: newUser.id,
+        first_name: normalizeText(formData.first_name),
+        last_name: normalizeText(formData.last_name),
+        dni,
+        birth_date: formData.birth_date || null,
+        category: normalizeText(formData.category),
+        phone: normalizeText(formData.phone) || null,
+        email,
+        address: normalizeText(formData.address) || null,
+        payment_status: false,
+        last_payment_date: null,
+        notes: null,
+      });
+
+      if (playerError) {
+        console.error('Error creando ficha del jugador:', playerError);
+        setErrorMessage(
+          'La cuenta se creo, pero no se pudo generar la ficha tecnica. Contacta al administrador.'
+        );
+        setLoading(false);
+        return;
+      }
+
       navigate('/my-profile', { replace: true });
       return;
     }

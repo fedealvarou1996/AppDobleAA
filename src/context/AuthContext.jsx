@@ -3,6 +3,50 @@ import { supabase } from '../lib/supabaseClient';
 
 const AuthContext = createContext(null);
 
+async function ensurePlayerRecord(userObj) {
+  if (!userObj?.id) return false;
+
+  const metadata = userObj.user_metadata || {};
+
+  const { data: existingPlayer, error: existingPlayerError } = await supabase
+    .from('players')
+    .select('id')
+    .eq('user_id', userObj.id)
+    .maybeSingle();
+
+  if (existingPlayerError) {
+    console.error('Error buscando ficha existente del player:', existingPlayerError);
+    return false;
+  }
+
+  if (existingPlayer) {
+    return true;
+  }
+
+  const { error: playerInsertError } = await supabase.from('players').insert({
+    profile_id: userObj.id,
+    user_id: userObj.id,
+    first_name: metadata.first_name || '',
+    last_name: metadata.last_name || '',
+    dni: metadata.dni || '',
+    birth_date: metadata.birth_date || null,
+    category: metadata.category || '',
+    phone: metadata.phone || null,
+    email: userObj.email || null,
+    address: metadata.address || null,
+    payment_status: false,
+    last_payment_date: null,
+    notes: null,
+  });
+
+  if (playerInsertError) {
+    console.error('Error creando ficha de player desde metadata:', playerInsertError);
+    return false;
+  }
+
+  return true;
+}
+
 export function AuthProvider({ children }) {
   const [session, setSession] = useState(null);
   const [user, setUser] = useState(null);
@@ -10,7 +54,33 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
   const [profileLoaded, setProfileLoaded] = useState(false);
 
-  async function loadProfile(userId) {
+  async function bootstrapPlayerProfile(userObj) {
+    if (!userObj?.id) return null;
+
+    const metadata = userObj.user_metadata || {};
+
+    if (metadata.role !== 'player') {
+      return null;
+    }
+
+    const { error: profileUpsertError } = await supabase.from('profiles').upsert(
+      { id: userObj.id, role: 'player' },
+      { onConflict: 'id' }
+    );
+
+    if (profileUpsertError) {
+      console.error('Error creando profile de player desde metadata:', profileUpsertError);
+      return null;
+    }
+
+    await ensurePlayerRecord(userObj);
+
+    return { id: userObj.id, role: 'player' };
+  }
+
+  async function loadProfile(userObj) {
+    const userId = userObj?.id;
+
     if (!userId) {
       setProfile(null);
       setProfileLoaded(true);
@@ -30,6 +100,20 @@ export function AuthProvider({ children }) {
       setProfile(null);
       setProfileLoaded(true);
       return null;
+    }
+
+    if (!data) {
+      const bootstrappedProfile = await bootstrapPlayerProfile(userObj);
+
+      if (bootstrappedProfile) {
+        setProfile(bootstrappedProfile);
+        setProfileLoaded(true);
+        return bootstrappedProfile;
+      }
+    }
+
+    if (data?.role === 'player') {
+      await ensurePlayerRecord(userObj);
     }
 
     setProfile(data);
@@ -59,7 +143,7 @@ export function AuthProvider({ children }) {
         setUser(currentUser);
 
         if (currentUser) {
-          await loadProfile(currentUser.id);
+          await loadProfile(currentUser);
         } else {
           setProfile(null);
           setProfileLoaded(true);
@@ -86,7 +170,7 @@ export function AuthProvider({ children }) {
       setUser(currentUser);
 
       if (currentUser) {
-        loadProfile(currentUser.id);
+        loadProfile(currentUser);
       } else {
         setProfile(null);
         setProfileLoaded(true);
@@ -125,7 +209,7 @@ export function AuthProvider({ children }) {
       role: profile?.role || null,
       isAdmin: profile?.role === 'admin',
       isPlayer: profile?.role === 'player',
-      refreshProfile: () => loadProfile(user?.id),
+      refreshProfile: () => loadProfile(user),
       signOut,
     }),
     [session, user, profile, loading, profileLoaded]

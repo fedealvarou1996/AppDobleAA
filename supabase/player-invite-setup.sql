@@ -35,6 +35,33 @@ with check (
   )
 );
 
+drop policy if exists "profiles_update_self_or_admin" on public.profiles;
+create policy "profiles_update_self_or_admin"
+on public.profiles
+for update
+to authenticated
+using (
+  id = auth.uid()
+  or exists (
+    select 1
+    from public.profiles as admin_profiles
+    where admin_profiles.id = auth.uid()
+      and admin_profiles.role = 'admin'
+  )
+)
+with check (
+  (
+    id = auth.uid()
+    and role = 'player'
+  )
+  or exists (
+    select 1
+    from public.profiles as admin_profiles
+    where admin_profiles.id = auth.uid()
+      and admin_profiles.role = 'admin'
+  )
+);
+
 drop policy if exists "players_select_own_or_admin" on public.players;
 create policy "players_select_own_or_admin"
 on public.players
