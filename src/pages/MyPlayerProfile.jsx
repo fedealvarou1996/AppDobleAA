@@ -21,6 +21,23 @@ function formatText(value) {
   return value ? value : '-';
 }
 
+function formatMemberId(player) {
+  if (!player?.id) return 'AA-0000-0000';
+  const compact = String(player.id).replace(/-/g, '').toUpperCase();
+  return `AA-${compact.slice(0, 4)}-${compact.slice(4, 8)}`;
+}
+
+function buildVerificationPayload(player, memberId) {
+  return JSON.stringify({
+    type: 'asociado',
+    id: memberId,
+    player_id: player?.id || null,
+    full_name: `${player?.first_name || ''} ${player?.last_name || ''}`.trim(),
+    dni: player?.dni || null,
+    status: player?.payment_status ? 'al_dia' : 'pendiente',
+  });
+}
+
 function MyPlayerProfile() {
   const navigate = useNavigate();
   const { user, profile, isPlayer, signOut } = useAuth();
@@ -114,6 +131,13 @@ function MyPlayerProfile() {
   const fullName =
     `${player?.first_name || ''} ${player?.last_name || ''}`.trim() || '-';
   const paymentLabel = player?.payment_status ? 'Al dia' : 'Pendiente';
+  const memberId = formatMemberId(player);
+  const issueDate = formatDate(player?.created_at);
+  const dueDate = formatDate(player?.last_payment_date);
+  const verificationPayload = buildVerificationPayload(player, memberId);
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=170x170&data=${encodeURIComponent(
+    verificationPayload
+  )}`;
 
   return (
     <div className="page-container">
@@ -144,89 +168,131 @@ function MyPlayerProfile() {
       )}
 
       {!errorMessage && !notFound && player && (
-        <section className="detail-card">
-          {renderPhotoUrl && (
-            <div className="player-photo-wrapper">
-              <img
-                className="player-photo-large"
-                src={renderPhotoUrl}
-                alt={`Foto de ${fullName}`}
-                loading="lazy"
-                decoding="async"
-              />
-            </div>
-          )}
+        <>
+          <section className="member-card">
+            <div className="member-card-banner">Carnet de asociado virtual</div>
 
-          <div className="detail-grid">
-            <div className="detail-item">
-              <span className="detail-label">Nombre completo</span>
-              <span className="detail-value">{fullName}</span>
+            <div className="member-card-body">
+              <div className="member-card-left">
+                {renderPhotoUrl && (
+                  <div className="member-card-photo-frame">
+                    <img
+                      className="member-card-photo"
+                      src={renderPhotoUrl}
+                      alt={`Foto de ${fullName}`}
+                      loading="lazy"
+                      decoding="async"
+                    />
+                  </div>
+                )}
+
+                <div className="member-card-qr-frame">
+                  <img
+                    className="member-card-qr"
+                    src={qrUrl}
+                    alt={`QR de verificacion de ${fullName}`}
+                    loading="lazy"
+                    decoding="async"
+                  />
+                  <small>Verificacion</small>
+                </div>
+              </div>
+
+              <div className="member-card-info">
+                <p>
+                  <span>Nombre completo:</span> {fullName}
+                </p>
+                <p>
+                  <span>ID de socio:</span> {memberId}
+                </p>
+                <p>
+                  <span>Tipo de membresia:</span> Atleta Federado
+                </p>
+                <p>
+                  <span>Fecha de emision:</span> {issueDate}
+                </p>
+                <p>
+                  <span>Fecha de vencimiento:</span> {dueDate}
+                </p>
+                <p>
+                  <span>Estado de cuota:</span> {paymentLabel}
+                </p>
+              </div>
+            </div>
+          </section>
+
+          <section className="detail-card member-detail-card">
+            <div className="detail-grid">
+              <div className="detail-item">
+                <span className="detail-label">Nombre completo</span>
+                <span className="detail-value">{fullName}</span>
+              </div>
+
+              <div className="detail-item">
+                <span className="detail-label">DNI</span>
+                <span className="detail-value">{formatText(player.dni)}</span>
+              </div>
+
+              <div className="detail-item">
+                <span className="detail-label">Fecha de nacimiento</span>
+                <span className="detail-value">{formatDate(player.birth_date)}</span>
+              </div>
+
+              <div className="detail-item">
+                <span className="detail-label">Categoria</span>
+                <span className="detail-value">{formatText(player.category)}</span>
+              </div>
+
+              <div className="detail-item">
+                <span className="detail-label">Telefono</span>
+                <span className="detail-value">{formatText(player.phone)}</span>
+              </div>
+
+              <div className="detail-item">
+                <span className="detail-label">Email</span>
+                <span className="detail-value">{formatText(player.email)}</span>
+              </div>
+
+              <div className="detail-item">
+                <span className="detail-label">Direccion</span>
+                <span className="detail-value">{formatText(player.address)}</span>
+              </div>
+
+              <div className="detail-item">
+                <span className="detail-label">Estado de cuota</span>
+                <span
+                  className={`badge ${
+                    player.payment_status ? 'badge-success' : 'badge-warning'
+                  }`}
+                >
+                  {paymentLabel}
+                </span>
+              </div>
+
+              <div className="detail-item">
+                <span className="detail-label">Ultimo pago</span>
+                <span className="detail-value">
+                  {formatDate(player.last_payment_date)}
+                </span>
+              </div>
+
+              <div className="detail-item">
+                <span className="detail-label">Fecha de alta</span>
+                <span className="detail-value">{formatDate(player.created_at)}</span>
+              </div>
+
+              <div className="detail-item">
+                <span className="detail-label">Ultima actualizacion</span>
+                <span className="detail-value">{formatDate(player.updated_at)}</span>
+              </div>
             </div>
 
-            <div className="detail-item">
-              <span className="detail-label">DNI</span>
-              <span className="detail-value">{formatText(player.dni)}</span>
+            <div className="detail-item detail-notes">
+              <span className="detail-label">Notas</span>
+              <span className="detail-value">{formatText(player.notes)}</span>
             </div>
-
-            <div className="detail-item">
-              <span className="detail-label">Fecha de nacimiento</span>
-              <span className="detail-value">{formatDate(player.birth_date)}</span>
-            </div>
-
-            <div className="detail-item">
-              <span className="detail-label">Categoria</span>
-              <span className="detail-value">{formatText(player.category)}</span>
-            </div>
-
-            <div className="detail-item">
-              <span className="detail-label">Telefono</span>
-              <span className="detail-value">{formatText(player.phone)}</span>
-            </div>
-
-            <div className="detail-item">
-              <span className="detail-label">Email</span>
-              <span className="detail-value">{formatText(player.email)}</span>
-            </div>
-
-            <div className="detail-item">
-              <span className="detail-label">Direccion</span>
-              <span className="detail-value">{formatText(player.address)}</span>
-            </div>
-
-            <div className="detail-item">
-              <span className="detail-label">Estado de cuota</span>
-              <span
-                className={`badge ${
-                  player.payment_status ? 'badge-success' : 'badge-warning'
-                }`}
-              >
-                {paymentLabel}
-              </span>
-            </div>
-
-            <div className="detail-item">
-              <span className="detail-label">Ultimo pago</span>
-              <span className="detail-value">
-                {formatDate(player.last_payment_date)}
-              </span>
-            </div>
-
-            <div className="detail-item">
-              <span className="detail-label">Fecha de alta</span>
-              <span className="detail-value">{formatDate(player.created_at)}</span>
-            </div>
-
-            <div className="detail-item">
-              <span className="detail-label">Ultima actualizacion</span>
-              <span className="detail-value">{formatDate(player.updated_at)}</span>
-            </div>
-          </div>
-
-          <div className="detail-item detail-notes">
-            <span className="detail-label">Notas</span>
-            <span className="detail-value">{formatText(player.notes)}</span>
-          </div>
-        </section>
+          </section>
+        </>
       )}
     </div>
   );

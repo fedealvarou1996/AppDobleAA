@@ -6,6 +6,9 @@
 alter table public.players
 add column if not exists photo_url text;
 
+alter table public.players
+add column if not exists photo_thumb_url text;
+
 insert into storage.buckets (id, name, public)
 values ('player-photos', 'player-photos', true)
 on conflict (id) do nothing;

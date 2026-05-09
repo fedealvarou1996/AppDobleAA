@@ -9,7 +9,7 @@ import {
   PLAYER_CATEGORIES,
 } from '../utils/playerValidations';
 import {
-  removePlayerPhotoByUrl,
+  removePlayerPhotoSet,
   uploadPlayerPhoto,
   validatePlayerPhoto,
 } from '../utils/playerPhotoUpload';
@@ -39,6 +39,7 @@ function PlayerEdit() {
   const [photoFile, setPhotoFile] = useState(null);
   const [photoPreviewUrl, setPhotoPreviewUrl] = useState('');
   const [existingPhotoUrl, setExistingPhotoUrl] = useState('');
+  const [existingPhotoThumbUrl, setExistingPhotoThumbUrl] = useState('');
 
   useEffect(() => {
     async function loadPlayer() {
@@ -80,6 +81,7 @@ function PlayerEdit() {
       });
       setPhotoPreviewUrl(data.photo_url || '');
       setExistingPhotoUrl(data.photo_url || '');
+      setExistingPhotoThumbUrl(data.photo_thumb_url || '');
 
       setLoading(false);
     }
@@ -194,10 +196,12 @@ function PlayerEdit() {
     }
 
     let uploadedPhotoUrl = existingPhotoUrl || null;
+    let uploadedPhotoThumbUrl = existingPhotoThumbUrl || null;
     if (photoFile) {
       try {
         const uploadResult = await uploadPlayerPhoto(photoFile, id);
         uploadedPhotoUrl = uploadResult.publicUrl;
+        uploadedPhotoThumbUrl = uploadResult.thumbPublicUrl;
       } catch (photoError) {
         setErrorMessage(photoError.message || 'No se pudo subir la foto.');
         setSaving(false);
@@ -206,6 +210,7 @@ function PlayerEdit() {
     }
 
     const previousPhotoUrl = existingPhotoUrl || null;
+    const previousPhotoThumbUrl = existingPhotoThumbUrl || null;
     const payload = {
       first_name: normalizeText(formData.first_name),
       last_name: normalizeText(formData.last_name),
@@ -220,6 +225,7 @@ function PlayerEdit() {
       last_payment_date: formData.last_payment_date || null,
       notes: normalizeText(formData.notes) || null,
       photo_url: uploadedPhotoUrl,
+      photo_thumb_url: uploadedPhotoThumbUrl,
       updated_at: new Date().toISOString(),
     };
 
@@ -239,7 +245,7 @@ function PlayerEdit() {
     }
 
     if (photoFile && previousPhotoUrl && previousPhotoUrl !== uploadedPhotoUrl) {
-      await removePlayerPhotoByUrl(previousPhotoUrl);
+      await removePlayerPhotoSet(previousPhotoUrl, previousPhotoThumbUrl);
     }
 
     navigate('/players');

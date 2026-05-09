@@ -8,6 +8,7 @@ import {
   normalizeText,
   PLAYER_CATEGORIES,
 } from '../utils/playerValidations';
+import appLogo from '../assets/aa-logo.svg';
 
 function PlayerRegister() {
   const navigate = useNavigate();
@@ -217,7 +218,9 @@ function PlayerRegister() {
   return (
     <main className="auth-page">
       <section className="auth-card auth-card-wide">
-        <div className="brand-badge">AA</div>
+        <div className="brand-badge">
+          <img src={appLogo} alt="Logo Asociacion de Atletas" />
+        </div>
         <h1>Registro de jugador</h1>
         <p className="auth-subtitle">Crea tu cuenta y tu ficha tecnica personal.</p>
 

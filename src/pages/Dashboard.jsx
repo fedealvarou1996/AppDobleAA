@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import appLogo from '../assets/aa-logo.svg';
 
 function Dashboard() {
   const { user, profile, isAdmin, signOut } = useAuth();
@@ -17,6 +18,7 @@ function Dashboard() {
     <main className="dashboard-page">
       <header className="dashboard-header">
         <div>
+          <img className="dashboard-logo" src={appLogo} alt="Logo Asociacion de Atletas" />
           <p className="eyebrow">Panel administrativo</p>
           <h1>Asociacion de Atletas</h1>
           <p className="muted">Sesion iniciada correctamente.</p>

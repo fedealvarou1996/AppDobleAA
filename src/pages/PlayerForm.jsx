@@ -142,10 +142,12 @@ function PlayerForm() {
     }
 
     let uploadedPhotoUrl = null;
+    let payloadPhotoThumbUrl = null;
     if (photoFile) {
       try {
         const uploadResult = await uploadPlayerPhoto(photoFile, user.id);
         uploadedPhotoUrl = uploadResult.publicUrl;
+        payloadPhotoThumbUrl = uploadResult.thumbPublicUrl;
       } catch (photoError) {
         setErrorMessage(photoError.message || 'No se pudo subir la foto.');
         setLoading(false);
@@ -168,6 +170,7 @@ function PlayerForm() {
       last_payment_date: formData.last_payment_date || null,
       notes: normalizeText(formData.notes) || null,
       photo_url: uploadedPhotoUrl,
+      photo_thumb_url: payloadPhotoThumbUrl || null,
     };
 
     const { error } = await supabase.from('players').insert(payload);

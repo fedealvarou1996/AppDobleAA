@@ -7,6 +7,8 @@ const MAX_INPUT_PHOTO_SIZE_BYTES = 10 * 1024 * 1024;
 const ALLOWED_PHOTO_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 const MAX_DIMENSION = 1280;
 const WEBP_QUALITY = 0.78;
+const THUMB_MAX_DIMENSION = 320;
+const THUMB_WEBP_QUALITY = 0.7;
 
 function sanitizeFileName(fileName) {
   return fileName
@@ -16,12 +18,19 @@ function sanitizeFileName(fileName) {
 }
 
 function extractPathFromPublicUrl(publicUrl) {
-  if (!publicUrl) return null;
-  const marker = `/storage/v1/object/public/${PLAYER_PHOTO_BUCKET}/`;
-  const markerIndex = publicUrl.indexOf(marker);
-  if (markerIndex < 0) return null;
+  if (!publicUrl) return '';
+  if (!publicUrl.startsWith('http')) return publicUrl;
 
-  const encodedPath = publicUrl.slice(markerIndex + marker.length);
+  const markers = [
+    `/storage/v1/object/public/${PLAYER_PHOTO_BUCKET}/`,
+    `/storage/v1/object/sign/${PLAYER_PHOTO_BUCKET}/`,
+    `/storage/v1/object/authenticated/${PLAYER_PHOTO_BUCKET}/`,
+  ];
+
+  const marker = markers.find((value) => publicUrl.includes(value));
+  if (!marker) return '';
+
+  const encodedPath = publicUrl.split(marker)[1]?.split('?')[0] || '';
   return decodeURIComponent(encodedPath);
 }
 
@@ -66,9 +75,9 @@ function canvasToBlob(canvas, type, quality) {
   });
 }
 
-async function compressImageToWebp(file) {
+async function compressImageToWebp(file, maxDimension = MAX_DIMENSION, startQuality = WEBP_QUALITY) {
   const image = await readImage(file);
-  const scale = Math.min(1, MAX_DIMENSION / Math.max(image.width, image.height));
+  const scale = Math.min(1, maxDimension / Math.max(image.width, image.height));
   const width = Math.max(1, Math.round(image.width * scale));
   const height = Math.max(1, Math.round(image.height * scale));
 
@@ -82,7 +91,7 @@ async function compressImageToWebp(file) {
 
   context.drawImage(image, 0, 0, width, height);
 
-  let quality = WEBP_QUALITY;
+  let quality = startQuality;
   let outputBlob = await canvasToBlob(canvas, 'image/webp', quality);
 
   while (outputBlob.size > MAX_PHOTO_SIZE_BYTES && quality > 0.5) {
@@ -100,8 +109,11 @@ async function compressImageToWebp(file) {
 
 export async function uploadPlayerPhoto(file, ownerId = 'anon') {
   const optimizedFile = await compressImageToWebp(file);
+  const thumbFile = await compressImageToWebp(file, THUMB_MAX_DIMENSION, THUMB_WEBP_QUALITY);
   const safeFileName = sanitizeFileName(optimizedFile.name || 'photo.webp');
-  const filePath = `${ownerId}/${Date.now()}-${safeFileName}`;
+  const basePath = `${ownerId}/${Date.now()}-${safeFileName}`;
+  const filePath = basePath;
+  const thumbPath = basePath.replace(/\.webp$/i, '-thumb.webp');
 
   const { error: uploadError } = await supabase.storage
     .from(PLAYER_PHOTO_BUCKET)
@@ -111,8 +123,23 @@ export async function uploadPlayerPhoto(file, ownerId = 'anon') {
     throw new Error(uploadError.message || 'No se pudo subir la foto.');
   }
 
+  const { error: thumbError } = await supabase.storage
+    .from(PLAYER_PHOTO_BUCKET)
+    .upload(thumbPath, thumbFile, { upsert: false, cacheControl: '31536000' });
+
+  if (thumbError) {
+    await supabase.storage.from(PLAYER_PHOTO_BUCKET).remove([filePath]);
+    throw new Error(thumbError.message || 'No se pudo subir la miniatura de foto.');
+  }
+
   const { data } = supabase.storage.from(PLAYER_PHOTO_BUCKET).getPublicUrl(filePath);
-  return { path: filePath, publicUrl: data.publicUrl };
+  const { data: thumbData } = supabase.storage.from(PLAYER_PHOTO_BUCKET).getPublicUrl(thumbPath);
+  return {
+    path: filePath,
+    thumbPath,
+    publicUrl: data.publicUrl,
+    thumbPublicUrl: thumbData.publicUrl,
+  };
 }
 
 export async function removePlayerPhotoByUrl(publicUrl) {
@@ -120,4 +147,13 @@ export async function removePlayerPhotoByUrl(publicUrl) {
   if (!path) return;
 
   await supabase.storage.from(PLAYER_PHOTO_BUCKET).remove([path]);
+}
+
+export async function removePlayerPhotoSet(photoUrl, thumbUrl) {
+  const photoPath = extractPathFromPublicUrl(photoUrl);
+  const thumbPath = extractPathFromPublicUrl(thumbUrl);
+  const paths = [photoPath, thumbPath].filter(Boolean);
+  if (!paths.length) return;
+
+  await supabase.storage.from(PLAYER_PHOTO_BUCKET).remove(paths);
 }

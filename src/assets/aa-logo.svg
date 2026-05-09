@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 260" role="img" aria-label="Asociacion de Atletas">
+  <rect width="980" height="260" fill="#050505"/>
+  <g transform="translate(18,18)">
+    <circle cx="110" cy="112" r="102" fill="none" stroke="#f3f3f3" stroke-width="12"/>
+    <path d="M112 22 L38 198 H68 L85 157 H144 L161 198 H191 L117 22 Z M97 132 L115 87 L132 132 Z" fill="#f3f3f3"/>
+  </g>
+  <g fill="#d9be75" font-family="Segoe UI, Tahoma, sans-serif" font-weight="800">
+    <text x="250" y="112" font-size="64" letter-spacing="2">ASOCIACION</text>
+    <text x="250" y="184" font-size="64" letter-spacing="2">DE ATLETAS</text>
+  </g>
+</svg>

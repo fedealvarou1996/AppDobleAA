@@ -320,8 +320,21 @@ function PlayersList() {
               {filteredPlayers.map((player) => (
                 <tr key={player.id}>
                   <td>
-                    {`${player.first_name || ''} ${player.last_name || ''}`.trim() ||
-                      '-'}
+                    <div className="player-name-cell">
+                      {(player.photo_thumb_url || player.photo_url) && (
+                        <img
+                          className="player-thumb"
+                          src={player.photo_thumb_url || player.photo_url}
+                          alt={`Foto de ${(player.first_name || '').trim()} ${(player.last_name || '').trim()}`}
+                          loading="lazy"
+                          decoding="async"
+                        />
+                      )}
+                      <span>
+                        {`${player.first_name || ''} ${player.last_name || ''}`.trim() ||
+                          '-'}
+                      </span>
+                    </div>
                   </td>
                   <td>{player.dni || '-'}</td>
                   <td>{player.category || '-'}</td>
