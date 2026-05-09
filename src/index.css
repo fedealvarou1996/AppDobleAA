@@ -241,6 +241,28 @@ body {
   margin-top: 16px;
 }
 
+.player-photo-preview {
+  width: 140px;
+  height: 140px;
+  border-radius: 14px;
+  object-fit: cover;
+  border: 1px solid #d1d5db;
+}
+
+.player-photo-wrapper {
+  margin-bottom: 18px;
+  display: flex;
+  justify-content: center;
+}
+
+.player-photo-large {
+  width: 180px;
+  height: 180px;
+  border-radius: 16px;
+  object-fit: cover;
+  border: 1px solid #d1d5db;
+}
+
 .badge {
   display: inline-flex;
   align-items: center;

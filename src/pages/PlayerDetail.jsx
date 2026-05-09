@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
+import { resolvePlayerPhotoUrl } from '../utils/playerPhotoUrl';
 
 function formatDate(value) {
   if (!value) return '-';
@@ -49,6 +50,7 @@ function PlayerDetail() {
   const [successMessage, setSuccessMessage] = useState('');
   const [notFound, setNotFound] = useState(false);
   const [inviting, setInviting] = useState(false);
+  const [renderPhotoUrl, setRenderPhotoUrl] = useState('');
 
   useEffect(() => {
     async function loadPlayer() {
@@ -56,6 +58,7 @@ function PlayerDetail() {
       setErrorMessage('');
       setSuccessMessage('');
       setNotFound(false);
+      setRenderPhotoUrl('');
 
       const { data, error } = await supabase
         .from('players')
@@ -78,6 +81,8 @@ function PlayerDetail() {
       }
 
       setPlayer(data);
+      const resolvedPhotoUrl = await resolvePlayerPhotoUrl(data.photo_url || '');
+      setRenderPhotoUrl(resolvedPhotoUrl);
       setLoading(false);
     }
 
@@ -218,6 +223,18 @@ function PlayerDetail() {
       {successMessage && <div className="alert alert-success">{successMessage}</div>}
 
       <section className="detail-card">
+        {renderPhotoUrl && (
+          <div className="player-photo-wrapper">
+            <img
+              className="player-photo-large"
+              src={renderPhotoUrl}
+              alt={`Foto de ${fullName}`}
+              loading="lazy"
+              decoding="async"
+            />
+          </div>
+        )}
+
         <div className="detail-grid">
           <div className="detail-item">
             <span className="detail-label">DNI</span>

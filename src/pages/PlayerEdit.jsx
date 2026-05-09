@@ -8,6 +8,11 @@ import {
   normalizeText,
   PLAYER_CATEGORIES,
 } from '../utils/playerValidations';
+import {
+  removePlayerPhotoByUrl,
+  uploadPlayerPhoto,
+  validatePlayerPhoto,
+} from '../utils/playerPhotoUpload';
 
 function PlayerEdit() {
   const { id } = useParams();
@@ -31,6 +36,9 @@ function PlayerEdit() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [photoFile, setPhotoFile] = useState(null);
+  const [photoPreviewUrl, setPhotoPreviewUrl] = useState('');
+  const [existingPhotoUrl, setExistingPhotoUrl] = useState('');
 
   useEffect(() => {
     async function loadPlayer() {
@@ -70,6 +78,8 @@ function PlayerEdit() {
         last_payment_date: data.last_payment_date || '',
         notes: data.notes || '',
       });
+      setPhotoPreviewUrl(data.photo_url || '');
+      setExistingPhotoUrl(data.photo_url || '');
 
       setLoading(false);
     }
@@ -84,6 +94,26 @@ function PlayerEdit() {
       ...prev,
       [name]: type === 'checkbox' ? checked : value,
     }));
+  }
+
+  function handlePhotoChange(event) {
+    const file = event.target.files?.[0];
+
+    if (!file) {
+      setPhotoFile(null);
+      return;
+    }
+
+    const photoValidationMessage = validatePlayerPhoto(file);
+    if (photoValidationMessage) {
+      setErrorMessage(photoValidationMessage);
+      event.target.value = '';
+      return;
+    }
+
+    setErrorMessage('');
+    setPhotoFile(file);
+    setPhotoPreviewUrl(URL.createObjectURL(file));
   }
 
   async function validateForm() {
@@ -163,6 +193,19 @@ function PlayerEdit() {
       return;
     }
 
+    let uploadedPhotoUrl = existingPhotoUrl || null;
+    if (photoFile) {
+      try {
+        const uploadResult = await uploadPlayerPhoto(photoFile, id);
+        uploadedPhotoUrl = uploadResult.publicUrl;
+      } catch (photoError) {
+        setErrorMessage(photoError.message || 'No se pudo subir la foto.');
+        setSaving(false);
+        return;
+      }
+    }
+
+    const previousPhotoUrl = existingPhotoUrl || null;
     const payload = {
       first_name: normalizeText(formData.first_name),
       last_name: normalizeText(formData.last_name),
@@ -176,6 +219,7 @@ function PlayerEdit() {
       payment_status: formData.payment_status,
       last_payment_date: formData.last_payment_date || null,
       notes: normalizeText(formData.notes) || null,
+      photo_url: uploadedPhotoUrl,
       updated_at: new Date().toISOString(),
     };
 
@@ -192,6 +236,10 @@ function PlayerEdit() {
 
       setSaving(false);
       return;
+    }
+
+    if (photoFile && previousPhotoUrl && previousPhotoUrl !== uploadedPhotoUrl) {
+      await removePlayerPhotoByUrl(previousPhotoUrl);
     }
 
     navigate('/players');
@@ -308,6 +356,14 @@ function PlayerEdit() {
               Cuota al dia
             </label>
           </div>
+        </div>
+
+        <div className="form-field">
+          <label>Foto del jugador</label>
+          <input type="file" accept="image/png,image/jpeg,image/webp" onChange={handlePhotoChange} />
+          {photoPreviewUrl && (
+            <img className="player-photo-preview" src={photoPreviewUrl} alt="Vista previa del jugador" />
+          )}
         </div>
 
         <div className="form-field">

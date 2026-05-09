@@ -9,6 +9,7 @@ import {
   normalizeText,
   PLAYER_CATEGORIES,
 } from '../utils/playerValidations';
+import { uploadPlayerPhoto, validatePlayerPhoto } from '../utils/playerPhotoUpload';
 
 function PlayerForm() {
   const navigate = useNavigate();
@@ -31,6 +32,8 @@ function PlayerForm() {
 
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [photoFile, setPhotoFile] = useState(null);
+  const [photoPreviewUrl, setPhotoPreviewUrl] = useState('');
 
   function handleChange(e) {
     const { name, value, type, checked } = e.target;
@@ -39,6 +42,27 @@ function PlayerForm() {
       ...prev,
       [name]: type === 'checkbox' ? checked : value,
     }));
+  }
+
+  function handlePhotoChange(event) {
+    const file = event.target.files?.[0];
+
+    if (!file) {
+      setPhotoFile(null);
+      setPhotoPreviewUrl('');
+      return;
+    }
+
+    const photoValidationMessage = validatePlayerPhoto(file);
+    if (photoValidationMessage) {
+      setErrorMessage(photoValidationMessage);
+      event.target.value = '';
+      return;
+    }
+
+    setErrorMessage('');
+    setPhotoFile(file);
+    setPhotoPreviewUrl(URL.createObjectURL(file));
   }
 
   async function validateForm() {
@@ -117,6 +141,18 @@ function PlayerForm() {
       return;
     }
 
+    let uploadedPhotoUrl = null;
+    if (photoFile) {
+      try {
+        const uploadResult = await uploadPlayerPhoto(photoFile, user.id);
+        uploadedPhotoUrl = uploadResult.publicUrl;
+      } catch (photoError) {
+        setErrorMessage(photoError.message || 'No se pudo subir la foto.');
+        setLoading(false);
+        return;
+      }
+    }
+
     const payload = {
       profile_id: user.id,
       first_name: normalizeText(formData.first_name),
@@ -131,6 +167,7 @@ function PlayerForm() {
       payment_status: formData.payment_status,
       last_payment_date: formData.last_payment_date || null,
       notes: normalizeText(formData.notes) || null,
+      photo_url: uploadedPhotoUrl,
     };
 
     const { error } = await supabase.from('players').insert(payload);
@@ -252,6 +289,14 @@ function PlayerForm() {
               Cuota al dia
             </label>
           </div>
+        </div>
+
+        <div className="form-field">
+          <label>Foto del jugador</label>
+          <input type="file" accept="image/png,image/jpeg,image/webp" onChange={handlePhotoChange} />
+          {photoPreviewUrl && (
+            <img className="player-photo-preview" src={photoPreviewUrl} alt="Vista previa del jugador" />
+          )}
         </div>
 
         <div className="form-field">

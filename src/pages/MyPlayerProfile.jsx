@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabaseClient';
+import { resolvePlayerPhotoUrl } from '../utils/playerPhotoUrl';
 
 function formatDate(value) {
   if (!value) return '-';
@@ -28,6 +29,7 @@ function MyPlayerProfile() {
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
   const [notFound, setNotFound] = useState(false);
+  const [renderPhotoUrl, setRenderPhotoUrl] = useState('');
 
   useEffect(() => {
     async function loadPlayerProfile() {
@@ -39,6 +41,7 @@ function MyPlayerProfile() {
       setLoading(true);
       setErrorMessage('');
       setNotFound(false);
+      setRenderPhotoUrl('');
 
       const { data, error } = await supabase
         .from('players')
@@ -56,6 +59,7 @@ function MyPlayerProfile() {
 
       if (data) {
         setPlayer(data);
+        setRenderPhotoUrl(await resolvePlayerPhotoUrl(data.photo_url || ''));
         setLoading(false);
         return;
       }
@@ -82,6 +86,7 @@ function MyPlayerProfile() {
       }
 
       setPlayer(legacyData);
+      setRenderPhotoUrl(await resolvePlayerPhotoUrl(legacyData.photo_url || ''));
       setLoading(false);
     }
 
@@ -140,6 +145,18 @@ function MyPlayerProfile() {
 
       {!errorMessage && !notFound && player && (
         <section className="detail-card">
+          {renderPhotoUrl && (
+            <div className="player-photo-wrapper">
+              <img
+                className="player-photo-large"
+                src={renderPhotoUrl}
+                alt={`Foto de ${fullName}`}
+                loading="lazy"
+                decoding="async"
+              />
+            </div>
+          )}
+
           <div className="detail-grid">
             <div className="detail-item">
               <span className="detail-label">Nombre completo</span>
