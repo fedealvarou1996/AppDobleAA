@@ -301,6 +301,16 @@ body {
   margin-top: 16px;
 }
 
+.payments-section h2 {
+  margin-top: 0;
+  margin-bottom: 14px;
+  color: var(--gold-soft);
+}
+
+.payments-form {
+  margin-bottom: 16px;
+}
+
 .member-detail-card {
   width: min(100%, var(--member-card-width));
   margin-left: auto;

@@ -210,7 +210,7 @@ function PlayerRegister() {
     }
 
     setMessage(
-      'Registro completado. Revisa tu email si tu proyecto requiere confirmacion antes de ingresar.'
+      'Registro completado. Revisa tu email por favor. En caso que no lo encuentres, revisa Spam o Contacta al administrador para asistencia.'
     );
     setLoading(false);
   }

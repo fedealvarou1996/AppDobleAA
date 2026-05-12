@@ -21,21 +21,19 @@ function formatText(value) {
   return value ? value : '-';
 }
 
+function formatCurrency(value) {
+  if (value === null || value === undefined || value === '') return '-';
+  return new Intl.NumberFormat('es-AR', {
+    style: 'currency',
+    currency: 'ARS',
+    maximumFractionDigits: 2,
+  }).format(Number(value));
+}
+
 function formatMemberId(player) {
   if (!player?.id) return 'AA-0000-0000';
   const compact = String(player.id).replace(/-/g, '').toUpperCase();
   return `AA-${compact.slice(0, 4)}-${compact.slice(4, 8)}`;
-}
-
-function buildVerificationPayload(player, memberId) {
-  return JSON.stringify({
-    type: 'asociado',
-    id: memberId,
-    player_id: player?.id || null,
-    full_name: `${player?.first_name || ''} ${player?.last_name || ''}`.trim(),
-    dni: player?.dni || null,
-    status: player?.payment_status ? 'al_dia' : 'pendiente',
-  });
 }
 
 function MyPlayerProfile() {
@@ -47,6 +45,7 @@ function MyPlayerProfile() {
   const [errorMessage, setErrorMessage] = useState('');
   const [notFound, setNotFound] = useState(false);
   const [renderPhotoUrl, setRenderPhotoUrl] = useState('');
+  const [payments, setPayments] = useState([]);
 
   useEffect(() => {
     async function loadPlayerProfile() {
@@ -59,6 +58,7 @@ function MyPlayerProfile() {
       setErrorMessage('');
       setNotFound(false);
       setRenderPhotoUrl('');
+      setPayments([]);
 
       const { data, error } = await supabase
         .from('players')
@@ -77,6 +77,13 @@ function MyPlayerProfile() {
       if (data) {
         setPlayer(data);
         setRenderPhotoUrl(await resolvePlayerPhotoUrl(data.photo_url || ''));
+        const { data: paymentsData } = await supabase
+          .from('player_payments')
+          .select('*')
+          .eq('player_id', data.id)
+          .order('payment_date', { ascending: false })
+          .limit(10);
+        setPayments(paymentsData || []);
         setLoading(false);
         return;
       }
@@ -104,6 +111,13 @@ function MyPlayerProfile() {
 
       setPlayer(legacyData);
       setRenderPhotoUrl(await resolvePlayerPhotoUrl(legacyData.photo_url || ''));
+      const { data: legacyPayments } = await supabase
+        .from('player_payments')
+        .select('*')
+        .eq('player_id', legacyData.id)
+        .order('payment_date', { ascending: false })
+        .limit(10);
+      setPayments(legacyPayments || []);
       setLoading(false);
     }
 
@@ -134,10 +148,8 @@ function MyPlayerProfile() {
   const memberId = formatMemberId(player);
   const issueDate = formatDate(player?.created_at);
   const dueDate = formatDate(player?.last_payment_date);
-  const verificationPayload = buildVerificationPayload(player, memberId);
-  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=170x170&data=${encodeURIComponent(
-    verificationPayload
-  )}`;
+  const verificationUrl = `${window.location.origin}/verify/${player.id}`;
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=170x170&data=${encodeURIComponent(verificationUrl)}`;
 
   return (
     <div className="page-container">
@@ -291,6 +303,38 @@ function MyPlayerProfile() {
               <span className="detail-label">Notas</span>
               <span className="detail-value">{formatText(player.notes)}</span>
             </div>
+          </section>
+
+          <section className="detail-card member-detail-card">
+            <h2>Historial de pagos</h2>
+            {!payments.length ? (
+              <div className="empty-card">
+                <p>Aun no hay pagos registrados.</p>
+              </div>
+            ) : (
+              <div className="table-card">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Fecha</th>
+                      <th>Monto</th>
+                      <th>Metodo</th>
+                      <th>Periodo</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {payments.map((payment) => (
+                      <tr key={payment.id}>
+                        <td>{formatDate(payment.payment_date)}</td>
+                        <td>{formatCurrency(payment.amount)}</td>
+                        <td>{formatText(payment.method)}</td>
+                        <td>{formatText(payment.period)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </section>
         </>
       )}

@@ -10,6 +10,7 @@ import PlayerForm from './pages/PlayerForm';
 import PlayerEdit from './pages/PlayerEdit';
 import PlayerDetail from './pages/PlayerDetail';
 import MyPlayerProfile from './pages/MyPlayerProfile';
+import VerifyPlayerProfile from './pages/VerifyPlayerProfile';
 
 function HomeRedirect() {
   const { loading, profileLoaded, user, isAdmin, isPlayer } = useAuth();
@@ -46,6 +47,7 @@ function App() {
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<PlayerRegister />} />
       <Route path="/unauthorized" element={<Unauthorized />} />
+      <Route path="/verify/:id" element={<VerifyPlayerProfile />} />
 
       <Route
         path="/my-profile"

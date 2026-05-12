@@ -112,6 +112,68 @@ function PlayersList() {
     setPaymentFilter('');
   }
 
+  function escapeCsvValue(value) {
+    const normalizedValue = value === null || value === undefined ? '' : String(value);
+    const escapedValue = normalizedValue.replace(/"/g, '""');
+    return `"${escapedValue}"`;
+  }
+
+  function handleExportFilteredPlayers() {
+    if (!filteredPlayers.length) {
+      setErrorMessage('No hay jugadores filtrados para exportar.');
+      return;
+    }
+
+    const headers = [
+      'Nombre',
+      'Apellido',
+      'DNI',
+      'Categoria',
+      'Telefono',
+      'Email',
+      'Direccion',
+      'Estado cuota',
+      'Estado jugador',
+      'Ultimo pago',
+      'Fecha de alta',
+    ];
+
+    const rows = filteredPlayers.map((player) => [
+      player.first_name || '',
+      player.last_name || '',
+      player.dni || '',
+      player.category || '',
+      player.phone || '',
+      player.email || '',
+      player.address || '',
+      player.payment_status ? 'Al dia' : 'Pendiente',
+      player.is_active === false ? 'Inactivo' : 'Activo',
+      player.last_payment_date
+        ? new Date(player.last_payment_date).toLocaleDateString('es-AR')
+        : '',
+      player.created_at ? new Date(player.created_at).toLocaleDateString('es-AR') : '',
+    ]);
+
+    const delimiter = ';';
+    const csvContent = [
+      headers.map(escapeCsvValue).join(delimiter),
+      ...rows.map((row) => row.map(escapeCsvValue).join(delimiter)),
+    ].join('\n');
+
+    const blob = new Blob([`\uFEFF${csvContent}`], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    const timestamp = new Date().toISOString().slice(0, 10);
+    link.href = url;
+    link.download = `jugadores-filtrados-${timestamp}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    setSuccessMessage(`Exportacion completada: ${filteredPlayers.length} jugador(es).`);
+  }
+
   async function handleToggleActive(player) {
     const isActive = player.is_active !== false;
     const actionLabel = isActive ? 'inactivar' : 'reactivar';
@@ -279,13 +341,23 @@ function PlayersList() {
             </div>
 
             <div className="filters-actions">
-              <button
-                type="button"
-                className="secondary-button"
-                onClick={clearFilters}
-              >
-                Limpiar filtros
-              </button>
+              <div className="button-row">
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={clearFilters}
+                >
+                  Limpiar filtros
+                </button>
+                <button
+                  type="button"
+                  className="primary-button"
+                  onClick={handleExportFilteredPlayers}
+                  disabled={filteredPlayers.length === 0}
+                >
+                  Exportar filtrados (CSV)
+                </button>
+              </div>
             </div>
           </div>
         </div>

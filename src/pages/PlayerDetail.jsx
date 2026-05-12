@@ -20,6 +20,15 @@ function formatText(value) {
   return value ? value : '-';
 }
 
+function formatCurrency(value) {
+  if (value === null || value === undefined || value === '') return '-';
+  return new Intl.NumberFormat('es-AR', {
+    style: 'currency',
+    currency: 'ARS',
+    maximumFractionDigits: 2,
+  }).format(Number(value));
+}
+
 async function getFunctionErrorMessage(error) {
   if (error?.context && typeof error.context.json === 'function') {
     try {
@@ -51,6 +60,15 @@ function PlayerDetail() {
   const [notFound, setNotFound] = useState(false);
   const [inviting, setInviting] = useState(false);
   const [renderPhotoUrl, setRenderPhotoUrl] = useState('');
+  const [payments, setPayments] = useState([]);
+  const [paymentSaving, setPaymentSaving] = useState(false);
+  const [paymentForm, setPaymentForm] = useState({
+    amount: '',
+    payment_date: new Date().toISOString().slice(0, 10),
+    method: '',
+    period: '',
+    notes: '',
+  });
 
   useEffect(() => {
     async function loadPlayer() {
@@ -83,6 +101,21 @@ function PlayerDetail() {
       setPlayer(data);
       const resolvedPhotoUrl = await resolvePlayerPhotoUrl(data.photo_url || '');
       setRenderPhotoUrl(resolvedPhotoUrl);
+
+      const { data: paymentsData, error: paymentsError } = await supabase
+        .from('player_payments')
+        .select('*')
+        .eq('player_id', id)
+        .order('payment_date', { ascending: false });
+
+      if (paymentsError) {
+        console.error('Error cargando historial de pagos:', paymentsError);
+        setErrorMessage('No se pudo cargar el historial de pagos.');
+        setLoading(false);
+        return;
+      }
+
+      setPayments(paymentsData || []);
       setLoading(false);
     }
 
@@ -132,6 +165,87 @@ function PlayerDetail() {
         : 'Invitacion enviada correctamente.'
     );
     setInviting(false);
+  }
+
+  function handlePaymentFormChange(event) {
+    const { name, value } = event.target;
+    setPaymentForm((prev) => ({ ...prev, [name]: value }));
+  }
+
+  async function handleCreatePayment(event) {
+    event.preventDefault();
+    if (!player?.id) return;
+
+    const amountValue = Number(paymentForm.amount);
+    if (!Number.isFinite(amountValue) || amountValue <= 0) {
+      setErrorMessage('El monto del pago debe ser mayor a 0.');
+      return;
+    }
+
+    setPaymentSaving(true);
+    setErrorMessage('');
+    setSuccessMessage('');
+
+    const payload = {
+      player_id: player.id,
+      amount: amountValue,
+      payment_date: paymentForm.payment_date || new Date().toISOString().slice(0, 10),
+      method: paymentForm.method || null,
+      period: paymentForm.period || null,
+      status: 'paid',
+      notes: paymentForm.notes || null,
+    };
+
+    const { data: paymentData, error: paymentError } = await supabase
+      .from('player_payments')
+      .insert(payload)
+      .select('*')
+      .single();
+
+    if (paymentError) {
+      console.error('Error registrando pago:', paymentError);
+      setErrorMessage('No se pudo registrar el pago.');
+      setPaymentSaving(false);
+      return;
+    }
+
+    const { error: playerUpdateError } = await supabase
+      .from('players')
+      .update({
+        payment_status: true,
+        last_payment_date: payload.payment_date,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', player.id);
+
+    if (playerUpdateError) {
+      console.error('Error actualizando estado de cuota:', playerUpdateError);
+      setErrorMessage('Pago registrado, pero no se pudo actualizar el estado del jugador.');
+      setPayments((prev) => [paymentData, ...prev]);
+      setPaymentSaving(false);
+      return;
+    }
+
+    setPayments((prev) => [paymentData, ...prev]);
+    setPlayer((prev) =>
+      prev
+        ? {
+            ...prev,
+            payment_status: true,
+            last_payment_date: payload.payment_date,
+            updated_at: new Date().toISOString(),
+          }
+        : prev
+    );
+    setPaymentForm({
+      amount: '',
+      payment_date: new Date().toISOString().slice(0, 10),
+      method: '',
+      period: '',
+      notes: '',
+    });
+    setSuccessMessage('Pago registrado correctamente.');
+    setPaymentSaving(false);
   }
 
   if (loading) {
@@ -304,6 +418,107 @@ function PlayerDetail() {
           <span className="detail-label">Notas</span>
           <span className="detail-value">{formatText(player.notes)}</span>
         </div>
+      </section>
+
+      <section className="detail-card payments-section">
+        <h2>Historial de pagos</h2>
+
+        <form className="form-card payments-form" onSubmit={handleCreatePayment}>
+          <div className="form-grid">
+            <div className="form-field">
+              <label>Monto</label>
+              <input
+                type="number"
+                name="amount"
+                min="0"
+                step="0.01"
+                value={paymentForm.amount}
+                onChange={handlePaymentFormChange}
+                required
+              />
+            </div>
+
+            <div className="form-field">
+              <label>Fecha de pago</label>
+              <input
+                type="date"
+                name="payment_date"
+                value={paymentForm.payment_date}
+                onChange={handlePaymentFormChange}
+                required
+              />
+            </div>
+
+            <div className="form-field">
+              <label>Metodo</label>
+              <input
+                type="text"
+                name="method"
+                placeholder="Transferencia, Efectivo, etc."
+                value={paymentForm.method}
+                onChange={handlePaymentFormChange}
+              />
+            </div>
+
+            <div className="form-field">
+              <label>Periodo</label>
+              <input
+                type="text"
+                name="period"
+                placeholder="2026-05"
+                value={paymentForm.period}
+                onChange={handlePaymentFormChange}
+              />
+            </div>
+          </div>
+
+          <div className="form-field">
+            <label>Notas</label>
+            <textarea
+              name="notes"
+              rows="2"
+              value={paymentForm.notes}
+              onChange={handlePaymentFormChange}
+            />
+          </div>
+
+          <div className="form-actions">
+            <button type="submit" className="primary-button" disabled={paymentSaving}>
+              {paymentSaving ? 'Guardando pago...' : 'Registrar pago'}
+            </button>
+          </div>
+        </form>
+
+        {!payments.length ? (
+          <div className="empty-card">
+            <p>Aun no hay pagos registrados para este jugador.</p>
+          </div>
+        ) : (
+          <div className="table-card">
+            <table>
+              <thead>
+                <tr>
+                  <th>Fecha</th>
+                  <th>Monto</th>
+                  <th>Metodo</th>
+                  <th>Periodo</th>
+                  <th>Notas</th>
+                </tr>
+              </thead>
+              <tbody>
+                {payments.map((payment) => (
+                  <tr key={payment.id}>
+                    <td>{formatDate(payment.payment_date)}</td>
+                    <td>{formatCurrency(payment.amount)}</td>
+                    <td>{formatText(payment.method)}</td>
+                    <td>{formatText(payment.period)}</td>
+                    <td>{formatText(payment.notes)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </section>
     </div>
   );
