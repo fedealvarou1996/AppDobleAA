@@ -744,6 +744,7 @@ button:disabled {
     gap: 16px;
     padding: 16px;
     max-width: 100%;
+    justify-items: center;
   }
 
   .member-card-photo-frame {
@@ -752,10 +753,21 @@ button:disabled {
 
   .member-card-left {
     width: 100%;
+    align-items: center;
   }
 
   .member-card-info {
     width: 100%;
+    max-width: 320px;
+    text-align: center;
+  }
+
+  .member-card-info p {
+    margin-bottom: 8px;
+  }
+
+  .member-card-info p span {
+    display: inline;
   }
 
   .dashboard-page {
