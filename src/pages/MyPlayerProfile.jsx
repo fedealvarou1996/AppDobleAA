@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabaseClient';
 import { resolvePlayerPhotoUrl } from '../utils/playerPhotoUrl';
+import { getEffectivePaymentStatus } from '../utils/paymentPeriod';
 
 function formatDate(value) {
   if (!value) return '-';
@@ -144,7 +145,8 @@ function MyPlayerProfile() {
 
   const fullName =
     `${player?.first_name || ''} ${player?.last_name || ''}`.trim() || '-';
-  const paymentLabel = player?.payment_status ? 'Al dia' : 'Pendiente';
+  const effectivePaymentStatus = getEffectivePaymentStatus(player);
+  const paymentLabel = effectivePaymentStatus ? 'Al dia' : 'Pendiente';
   const memberId = formatMemberId(player);
   const issueDate = formatDate(player?.created_at);
   const dueDate = formatDate(player?.last_payment_date);
@@ -274,7 +276,7 @@ function MyPlayerProfile() {
                 <span className="detail-label">Estado de cuota</span>
                 <span
                   className={`badge ${
-                    player.payment_status ? 'badge-success' : 'badge-warning'
+                    effectivePaymentStatus ? 'badge-success' : 'badge-warning'
                   }`}
                 >
                   {paymentLabel}

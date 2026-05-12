@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { resolvePlayerPhotoUrl } from '../utils/playerPhotoUrl';
+import { getEffectivePaymentStatus } from '../utils/paymentPeriod';
 
 function formatDate(value) {
   if (!value) return '-';
@@ -89,7 +90,8 @@ function VerifyPlayerProfile() {
 
   const fullName = `${player.first_name || ''} ${player.last_name || ''}`.trim() || '-';
   const memberId = formatMemberId(player);
-  const paymentLabel = player.payment_status ? 'Al dia' : 'Pendiente';
+  const effectivePaymentStatus = getEffectivePaymentStatus(player);
+  const paymentLabel = effectivePaymentStatus ? 'Al dia' : 'Pendiente';
 
   return (
     <div className="page-container">

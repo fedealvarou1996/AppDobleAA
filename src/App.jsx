@@ -11,6 +11,8 @@ import PlayerEdit from './pages/PlayerEdit';
 import PlayerDetail from './pages/PlayerDetail';
 import MyPlayerProfile from './pages/MyPlayerProfile';
 import VerifyPlayerProfile from './pages/VerifyPlayerProfile';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 
 function HomeRedirect() {
   const { loading, profileLoaded, user, isAdmin, isPlayer } = useAuth();
@@ -45,6 +47,8 @@ function App() {
     <Routes>
       <Route path="/" element={<HomeRedirect />} />
       <Route path="/login" element={<Login />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/register" element={<PlayerRegister />} />
       <Route path="/unauthorized" element={<Unauthorized />} />
       <Route path="/verify/:id" element={<VerifyPlayerProfile />} />

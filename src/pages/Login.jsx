@@ -97,6 +97,10 @@ function Login() {
           </button>
         </form>
 
+        <p className="auth-switch">
+          <Link to="/forgot-password">Olvide mi contrasena</Link>
+        </p>
+
         {message && <p className="auth-message">{message}</p>}
 
         <p className="auth-switch">

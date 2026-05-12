@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
+import { getEffectivePaymentStatus } from '../utils/paymentPeriod';
 
 async function getFunctionErrorMessage(error, fallbackMessage) {
   if (error?.context && typeof error.context.json === 'function') {
@@ -51,7 +52,31 @@ function PlayersList() {
         return;
       }
 
-      setPlayers(data || []);
+      const loadedPlayers = data || [];
+      const expiredPlayers = loadedPlayers.filter(
+        (player) => player.payment_status && !getEffectivePaymentStatus(player)
+      );
+
+      if (expiredPlayers.length > 0) {
+        const expiredIds = expiredPlayers.map((player) => player.id);
+        const { error: expireUpdateError } = await supabase
+          .from('players')
+          .update({
+            payment_status: false,
+            updated_at: new Date().toISOString(),
+          })
+          .in('id', expiredIds);
+
+        if (expireUpdateError) {
+          console.error('Error actualizando vencimientos de cuota:', expireUpdateError);
+        } else {
+          expiredPlayers.forEach((player) => {
+            player.payment_status = false;
+          });
+        }
+      }
+
+      setPlayers(loadedPlayers);
       setLoading(false);
     }
 
@@ -99,8 +124,8 @@ function PlayersList() {
 
       const matchesPayment =
         !paymentFilter ||
-        (paymentFilter === 'paid' && player.payment_status === true) ||
-        (paymentFilter === 'pending' && player.payment_status === false);
+        (paymentFilter === 'paid' && getEffectivePaymentStatus(player) === true) ||
+        (paymentFilter === 'pending' && getEffectivePaymentStatus(player) === false);
 
       return matchesSearch && matchesCategory && matchesPayment;
     });
@@ -146,7 +171,7 @@ function PlayersList() {
       player.phone || '',
       player.email || '',
       player.address || '',
-      player.payment_status ? 'Al dia' : 'Pendiente',
+      getEffectivePaymentStatus(player) ? 'Al dia' : 'Pendiente',
       player.is_active === false ? 'Inactivo' : 'Activo',
       player.last_payment_date
         ? new Date(player.last_payment_date).toLocaleDateString('es-AR')
@@ -410,7 +435,7 @@ function PlayersList() {
                   </td>
                   <td>{player.dni || '-'}</td>
                   <td>{player.category || '-'}</td>
-                  <td>{player.payment_status ? 'Al dia' : 'Pendiente'}</td>
+                  <td>{getEffectivePaymentStatus(player) ? 'Al dia' : 'Pendiente'}</td>
                   <td>{player.is_active === false ? 'Inactivo' : 'Activo'}</td>
                   <td>
                     {player.last_payment_date
