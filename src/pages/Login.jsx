@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../context/AuthContext';
@@ -51,12 +51,12 @@ function Login() {
 
     if (error) {
       console.error('Error de login:', error);
-      setMessage('Email o contrasena incorrectos. Revisa los datos e intenta de nuevo.');
+      setMessage('Email o contraseña incorrectos. Revisa los datos e intenta de nuevo.');
       setLoading(false);
       return;
     }
 
-    setMessage('Inicio de sesion correcto. Redirigiendo...');
+    setMessage('Inicio de sesión correcto. Redirigiendo...');
     setLoading(false);
   }
 
@@ -64,7 +64,7 @@ function Login() {
     <main className="auth-page">
       <section className="auth-card">
         <div className="brand-badge">
-          <img src={appLogo} alt="Logo Asociacion de Atletas" />
+          <img src={appLogo} alt="Logo Asociación de Atletas" />
         </div>
         <h1>Asociación de Atletas</h1>
         <p className="auth-subtitle">Ingreso al sistema</p>
@@ -81,11 +81,11 @@ function Login() {
             required
           />
 
-          <label htmlFor="password">Contrasena</label>
+          <label htmlFor="password">Contraseña</label>
           <input
             id="password"
             type="password"
-            placeholder="Tu contrasena"
+            placeholder="Tu contraseña"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             autoComplete="current-password"
@@ -98,13 +98,13 @@ function Login() {
         </form>
 
         <p className="auth-switch">
-          <Link to="/forgot-password">Olvide mi contrasena</Link>
+          <Link to="/forgot-password">Olvidé mi contraseña</Link>
         </p>
 
         {message && <p className="auth-message">{message}</p>}
 
         <p className="auth-switch">
-          Sos jugador y no tenes cuenta? <Link to="/register">Registrate</Link>
+          ¿Sos jugador y no tenés cuenta? <Link to="/register">Registrate</Link>
         </p>
       </section>
     </main>
@@ -112,3 +112,4 @@ function Login() {
 }
 
 export default Login;
+

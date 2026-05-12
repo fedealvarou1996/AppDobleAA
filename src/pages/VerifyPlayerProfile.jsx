@@ -3,6 +3,10 @@ import { Link, useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { resolvePlayerPhotoUrl } from '../utils/playerPhotoUrl';
 import { getEffectivePaymentStatus } from '../utils/paymentPeriod';
+import cornerTopLeft from '../assets/jugador.avif';
+import cornerTopRight from '../assets/pelota.jpg';
+import cornerBottomLeft from '../assets/jugador 2.avif';
+import cornerBottomRight from '../assets/pelota 2.webp';
 
 function formatDate(value) {
   if (!value) return '-';
@@ -94,7 +98,8 @@ function VerifyPlayerProfile() {
   const paymentLabel = effectivePaymentStatus ? 'Al dia' : 'Pendiente';
 
   return (
-    <div className="page-container">
+    <div className="verify-page-wrap">
+      <div className="page-container">
       <div className="page-header">
         <div>
           <h1>Verificacion de socio</h1>
@@ -106,6 +111,38 @@ function VerifyPlayerProfile() {
       </div>
 
       <section className="member-card">
+        <img
+          className="verify-corner-icon verify-corner-top-left"
+          src={cornerTopLeft}
+          alt=""
+          aria-hidden="true"
+          loading="lazy"
+          decoding="async"
+        />
+        <img
+          className="verify-corner-icon verify-corner-top-right"
+          src={cornerTopRight}
+          alt=""
+          aria-hidden="true"
+          loading="lazy"
+          decoding="async"
+        />
+        <img
+          className="verify-corner-icon verify-corner-bottom-left"
+          src={cornerBottomLeft}
+          alt=""
+          aria-hidden="true"
+          loading="lazy"
+          decoding="async"
+        />
+        <img
+          className="verify-corner-icon verify-corner-bottom-right"
+          src={cornerBottomRight}
+          alt=""
+          aria-hidden="true"
+          loading="lazy"
+          decoding="async"
+        />
         <div className="member-card-banner">Carnet de asociado virtual</div>
 
         <div className="member-card-body">
@@ -145,6 +182,7 @@ function VerifyPlayerProfile() {
           </div>
         </div>
       </section>
+      </div>
     </div>
   );
 }

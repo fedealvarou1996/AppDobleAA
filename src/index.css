@@ -38,7 +38,48 @@ body {
   min-height: 100vh;
 }
 
+.verify-page-wrap {
+  position: relative;
+  min-height: 100vh;
+  isolation: isolate;
+}
+
+.verify-corner-icon {
+  position: absolute;
+  width: clamp(52px, 8vw, 82px);
+  height: clamp(52px, 8vw, 82px);
+  object-fit: cover;
+  border-radius: 0;
+  border: 0;
+  box-shadow: none;
+  opacity: 0.95;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.verify-corner-top-left {
+  top: 76px;
+  left: 12px;
+}
+
+.verify-corner-top-right {
+  top: 76px;
+  right: 12px;
+}
+
+.verify-corner-bottom-left {
+  bottom: 12px;
+  left: 12px;
+}
+
+.verify-corner-bottom-right {
+  bottom: 12px;
+  right: 12px;
+}
+
 .page-container {
+  position: relative;
+  z-index: 2;
   width: min(1100px, calc(100% - 32px));
   margin: 0 auto;
   padding: 32px 0;
@@ -352,6 +393,7 @@ body {
 }
 
 .member-card {
+  position: relative;
   background: linear-gradient(180deg, #0e0e0e, #090909);
   border: 1px solid #9b7a24;
   border-radius: 20px;
@@ -693,6 +735,32 @@ button:disabled {
 }
 
 @media (max-width: 720px) {
+  .verify-corner-icon {
+    width: 42px;
+    height: 42px;
+    opacity: 0.75;
+  }
+
+  .verify-corner-top-left {
+    top: 60px;
+    left: 8px;
+  }
+
+  .verify-corner-top-right {
+    top: 60px;
+    right: 8px;
+  }
+
+  .verify-corner-bottom-left {
+    bottom: 8px;
+    left: 8px;
+  }
+
+  .verify-corner-bottom-right {
+    bottom: 8px;
+    right: 8px;
+  }
+
   .page-header {
     flex-direction: column;
     align-items: stretch;
