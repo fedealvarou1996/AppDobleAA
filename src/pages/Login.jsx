@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../context/AuthContext';
-import appLogo from '../assets/aa-logo.svg';
+import appLogo from '../assets/logo.svg';
 
 function Login() {
   const {
@@ -66,7 +66,7 @@ function Login() {
         <div className="brand-badge">
           <img src={appLogo} alt="Logo Asociacion de Atletas" />
         </div>
-        <h1>Asociacion de Atletas</h1>
+        <h1>Asociación de Atletas</h1>
         <p className="auth-subtitle">Ingreso al sistema</p>
 
         <form onSubmit={handleLogin} className="auth-form">

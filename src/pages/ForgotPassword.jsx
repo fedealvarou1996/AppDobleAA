@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
-import appLogo from '../assets/aa-logo.svg';
+import appLogo from '../assets/logo.svg';
 
 function ForgotPassword() {
   const [email, setEmail] = useState('');

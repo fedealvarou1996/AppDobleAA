@@ -8,7 +8,7 @@ import {
   normalizeText,
   PLAYER_CATEGORIES,
 } from '../utils/playerValidations';
-import appLogo from '../assets/aa-logo.svg';
+import appLogo from '../assets/logo.svg';
 
 function PlayerRegister() {
   const navigate = useNavigate();

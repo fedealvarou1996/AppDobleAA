@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { resolvePlayerPhotoUrl } from '../utils/playerPhotoUrl';
-import { getEffectivePaymentStatus } from '../utils/paymentPeriod';
+import { getEffectivePaymentStatus, isCurrentMonthlyPeriod } from '../utils/paymentPeriod';
 
 function formatDate(value) {
   if (!value) return '-';
@@ -63,6 +63,7 @@ function PlayerDetail() {
   const [renderPhotoUrl, setRenderPhotoUrl] = useState('');
   const [payments, setPayments] = useState([]);
   const [paymentSaving, setPaymentSaving] = useState(false);
+  const [deletingPaymentId, setDeletingPaymentId] = useState('');
   const [paymentForm, setPaymentForm] = useState({
     amount: '',
     payment_date: new Date().toISOString().slice(0, 10),
@@ -247,6 +248,72 @@ function PlayerDetail() {
     });
     setSuccessMessage('Pago registrado correctamente.');
     setPaymentSaving(false);
+  }
+
+  async function handleDeletePayment(payment) {
+    if (!player?.id || !payment?.id) return;
+    if (!window.confirm('¿Seguro que queres eliminar este pago?')) {
+      return;
+    }
+
+    setDeletingPaymentId(payment.id);
+    setErrorMessage('');
+    setSuccessMessage('');
+
+    const { error: deleteError } = await supabase
+      .from('player_payments')
+      .delete()
+      .eq('id', payment.id)
+      .eq('player_id', player.id);
+
+    if (deleteError) {
+      console.error('Error eliminando pago:', deleteError);
+      setErrorMessage('No se pudo eliminar el pago.');
+      setDeletingPaymentId('');
+      return;
+    }
+
+    const updatedPayments = payments.filter((currentPayment) => currentPayment.id !== payment.id);
+    setPayments(updatedPayments);
+
+    const latestPayment = [...updatedPayments].sort((a, b) =>
+      String(b.payment_date || '').localeCompare(String(a.payment_date || ''))
+    )[0];
+
+    const newLastPaymentDate = latestPayment?.payment_date || null;
+    const newPaymentStatus = latestPayment
+      ? isCurrentMonthlyPeriod(latestPayment.payment_date)
+      : false;
+
+    const { error: playerUpdateError } = await supabase
+      .from('players')
+      .update({
+        last_payment_date: newLastPaymentDate,
+        payment_status: newPaymentStatus,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', player.id);
+
+    if (playerUpdateError) {
+      console.error('Error actualizando jugador luego de eliminar pago:', playerUpdateError);
+      setErrorMessage('Pago eliminado, pero no se pudo actualizar estado del jugador.');
+      setDeletingPaymentId('');
+      return;
+    }
+
+    setPlayer((prev) =>
+      prev
+        ? {
+            ...prev,
+            last_payment_date: newLastPaymentDate,
+            payment_status: newPaymentStatus,
+            updated_at: new Date().toISOString(),
+          }
+        : prev
+    );
+
+    setSuccessMessage('Pago eliminado correctamente.');
+    setDeletingPaymentId('');
   }
 
   if (loading) {
@@ -505,6 +572,7 @@ function PlayerDetail() {
                   <th>Metodo</th>
                   <th>Periodo</th>
                   <th>Notas</th>
+                  <th>Acciones</th>
                 </tr>
               </thead>
               <tbody>
@@ -515,6 +583,16 @@ function PlayerDetail() {
                     <td>{formatText(payment.method)}</td>
                     <td>{formatText(payment.period)}</td>
                     <td>{formatText(payment.notes)}</td>
+                    <td>
+                      <button
+                        type="button"
+                        className="danger-button small-button"
+                        onClick={() => handleDeletePayment(payment)}
+                        disabled={deletingPaymentId === payment.id}
+                      >
+                        {deletingPaymentId === payment.id ? 'Eliminando...' : 'Eliminar'}
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>

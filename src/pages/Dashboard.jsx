@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import appLogo from '../assets/aa-logo.svg';
+import appLogo from '../assets/logo.svg';
 
 function Dashboard() {
   const { user, profile, isAdmin, signOut } = useAuth();
