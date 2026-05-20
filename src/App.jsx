@@ -1,6 +1,6 @@
-import { Navigate, Route, Routes } from 'react-router-dom';
+﻿import { Navigate, Route, Routes } from 'react-router-dom';
 import ProtectedRoute from './components/ProtectedRoute';
-import { useAuth } from './context/AuthContext';
+import { useAuth } from './context/useAuth';
 import Login from './pages/Login';
 import PlayerRegister from './pages/PlayerRegister';
 import Dashboard from './pages/Dashboard';
@@ -111,3 +111,4 @@ function App() {
 }
 
 export default App;
+

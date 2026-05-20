@@ -1,5 +1,5 @@
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+﻿import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/useAuth';
 
 function Unauthorized() {
   const navigate = useNavigate();
@@ -29,3 +29,4 @@ function Unauthorized() {
 }
 
 export default Unauthorized;
+

@@ -1,7 +1,6 @@
-import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+﻿import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
-
-const AuthContext = createContext(null);
+import { AuthContext } from './authContextInstance';
 
 async function ensurePlayerRecord(userObj) {
   if (!userObj?.id) return false;
@@ -54,7 +53,7 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
   const [profileLoaded, setProfileLoaded] = useState(false);
 
-  async function bootstrapPlayerProfile(userObj) {
+  const bootstrapPlayerProfile = useCallback(async (userObj) => {
     if (!userObj?.id) return null;
 
     const metadata = userObj.user_metadata || {};
@@ -76,9 +75,9 @@ export function AuthProvider({ children }) {
     await ensurePlayerRecord(userObj);
 
     return { id: userObj.id, role: 'player' };
-  }
+  }, []);
 
-  async function loadProfile(userObj) {
+  const loadProfile = useCallback(async (userObj) => {
     const userId = userObj?.id;
 
     if (!userId) {
@@ -119,7 +118,7 @@ export function AuthProvider({ children }) {
     setProfile(data);
     setProfileLoaded(true);
     return data;
-  }
+  }, [bootstrapPlayerProfile]);
 
   useEffect(() => {
     let isMounted = true;
@@ -131,7 +130,7 @@ export function AuthProvider({ children }) {
         const { data, error } = await supabase.auth.getSession();
 
         if (error) {
-          console.error('Error obteniendo sesión:', error);
+          console.error('Error obteniendo sesiÃ³n:', error);
         }
 
         const currentSession = data?.session ?? null;
@@ -183,13 +182,13 @@ export function AuthProvider({ children }) {
       isMounted = false;
       data.subscription.unsubscribe();
     };
-  }, []);
+  }, [loadProfile]);
 
   async function signOut() {
     const { error } = await supabase.auth.signOut();
 
     if (error) {
-      console.error('Error cerrando sesión:', error);
+      console.error('Error cerrando sesiÃ³n:', error);
       throw error;
     }
 
@@ -212,18 +211,9 @@ export function AuthProvider({ children }) {
       refreshProfile: () => loadProfile(user),
       signOut,
     }),
-    [session, user, profile, loading, profileLoaded]
+    [session, user, profile, loading, profileLoaded, loadProfile]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
-export function useAuth() {
-  const context = useContext(AuthContext);
-
-  if (!context) {
-    throw new Error('useAuth debe usarse dentro de AuthProvider');
-  }
-
-  return context;
-}

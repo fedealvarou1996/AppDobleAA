@@ -1,5 +1,5 @@
-import { Navigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+﻿import { Navigate } from 'react-router-dom';
+import { useAuth } from '../context/useAuth';
 
 function ProtectedRoute({
   children,
@@ -12,7 +12,7 @@ function ProtectedRoute({
     return (
       <div className="page-center">
         <div className="loading-card">
-          <strong>Cargando sesión...</strong>
+          <strong>Cargando sesiÃ³n...</strong>
         </div>
       </div>
     );
@@ -44,3 +44,4 @@ function ProtectedRoute({
 }
 
 export default ProtectedRoute;
+

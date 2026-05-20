@@ -1,5 +1,5 @@
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+﻿import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/useAuth';
 import appLogo from '../assets/logo.svg';
 
 function Dashboard() {
@@ -65,3 +65,4 @@ function Dashboard() {
 }
 
 export default Dashboard;
+

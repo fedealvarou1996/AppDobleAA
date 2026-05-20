@@ -526,6 +526,21 @@ body {
   margin-bottom: 16px;
 }
 
+.checkout-helper-text {
+  margin: 0 0 12px;
+  color: var(--text-muted);
+}
+
+.checkout-actions {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.checkout-alert {
+  margin-bottom: 0;
+}
+
 .page-center,
 .auth-page,
 .center-screen {

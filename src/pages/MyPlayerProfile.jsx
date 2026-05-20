@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+﻿import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/useAuth';
 import { supabase } from '../lib/supabaseClient';
 import { resolvePlayerPhotoUrl } from '../utils/playerPhotoUrl';
 import { getEffectivePaymentStatus } from '../utils/paymentPeriod';
@@ -345,3 +345,4 @@ function MyPlayerProfile() {
 }
 
 export default MyPlayerProfile;
+

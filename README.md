@@ -56,3 +56,41 @@ Ese flujo:
 - inserta la ficha inicial en `players`
 
 Para que funcione con RLS, ejecuta tambien [supabase/player-invite-setup.sql](./supabase/player-invite-setup.sql) actualizado.
+
+## Pagos online con Mercado Pago (Checkout Pro)
+
+Se agrego un flujo basico de pago online desde `/my-profile`:
+
+- boton `Pagar cuota con Mercado Pago` para jugador
+- Edge Function `create-mercadopago-checkout` para crear preferencia
+- Edge Function `mercadopago-webhook` para confirmar pagos
+- registro del historial en `player_payments` cuando el estado llega `approved`
+
+Pasos para activarlo:
+
+1. Ejecutar [supabase/mercadopago-checkout-setup.sql](./supabase/mercadopago-checkout-setup.sql).
+2. Desplegar funciones:
+
+```bash
+supabase functions deploy create-mercadopago-checkout
+supabase functions deploy mercadopago-webhook
+```
+
+3. Definir secretos:
+
+```bash
+supabase secrets set MERCADOPAGO_ACCESS_TOKEN=APP_USR-...
+supabase secrets set APP_BASE_URL=https://tu-app.com
+supabase secrets set MERCADOPAGO_WEBHOOK_URL=https://<project-ref>.functions.supabase.co/mercadopago-webhook
+```
+
+4. En el frontend, definir variable de entorno:
+
+```bash
+VITE_MONTHLY_FEE_ARS=15000
+```
+
+Notas:
+
+- La confirmacion real del pago se hace por webhook (no por redireccion del navegador).
+- `MERCADOPAGO_WEBHOOK_URL` es opcional, pero recomendado para tener confirmacion automatica.

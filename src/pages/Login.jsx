@@ -1,7 +1,7 @@
 ﻿import { useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/useAuth';
 import appLogo from '../assets/logo.svg';
 
 function Login() {
@@ -112,4 +112,5 @@ function Login() {
 }
 
 export default Login;
+
 
