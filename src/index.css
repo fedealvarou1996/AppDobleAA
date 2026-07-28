@@ -224,7 +224,7 @@ body {
 
 .filters-grid {
   display: grid;
-  grid-template-columns: minmax(220px, 2fr) minmax(180px, 1fr) minmax(180px, 1fr) auto;
+  grid-template-columns: minmax(220px, 2fr) minmax(180px, 1fr) minmax(180px, 1fr);
   gap: 14px;
   align-items: end;
 }
@@ -232,6 +232,8 @@ body {
 .filters-actions {
   display: flex;
   justify-content: flex-end;
+  grid-column: 1 / -1;
+  min-width: 0;
 }
 
 .checkbox-field {
@@ -717,6 +719,20 @@ body {
   flex-wrap: wrap;
 }
 
+.filters-button-row {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  max-width: 100%;
+}
+
+.filters-button-row button {
+  white-space: nowrap;
+  padding-inline: 14px;
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
 .info-card h2 {
   margin: 0 0 14px;
   color: var(--gold-soft);
@@ -800,6 +816,15 @@ button:disabled {
   .button-row {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .filters-button-row {
+    flex-direction: column;
+  }
+
+  .filters-button-row button {
+    width: 100%;
+    white-space: normal;
   }
 
   .primary-button,

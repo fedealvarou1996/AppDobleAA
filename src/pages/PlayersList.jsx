@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { getEffectivePaymentStatus } from '../utils/paymentPeriod';
+import { buildGoodFaithXlsxBlob } from '../utils/goodFaithExport';
 
 async function getFunctionErrorMessage(error, fallbackMessage) {
   if (error?.context && typeof error.context.json === 'function') {
@@ -137,13 +138,7 @@ function PlayersList() {
     setPaymentFilter('');
   }
 
-  function escapeCsvValue(value) {
-    const normalizedValue = value === null || value === undefined ? '' : String(value);
-    const escapedValue = normalizedValue.replace(/"/g, '""');
-    return `"${escapedValue}"`;
-  }
-
-  function handleExportFilteredPlayers() {
+  function handleExportCsvPlayers() {
     if (!filteredPlayers.length) {
       setErrorMessage('No hay jugadores filtrados para exportar.');
       return;
@@ -162,6 +157,12 @@ function PlayersList() {
       'Ultimo pago',
       'Fecha de alta',
     ];
+
+    const escapeCsvValue = (value) => {
+      const normalizedValue = value === null || value === undefined ? '' : String(value);
+      const escapedValue = normalizedValue.replace(/"/g, '""');
+      return `"${escapedValue}"`;
+    };
 
     const rows = filteredPlayers.map((player) => [
       player.first_name || '',
@@ -199,11 +200,35 @@ function PlayersList() {
     setSuccessMessage(`Exportacion completada: ${filteredPlayers.length} jugador(es).`);
   }
 
+  function handleExportGoodFaithPlayers() {
+    if (!filteredPlayers.length) {
+      setErrorMessage('No hay jugadores filtrados para exportar.');
+      return;
+    }
+
+    const uniqueCategories = Array.from(
+      new Set(filteredPlayers.map((player) => player.category?.trim()).filter(Boolean))
+    );
+    const category = selectedCategory || (uniqueCategories.length === 1 ? uniqueCategories[0] : '');
+    const blob = buildGoodFaithXlsxBlob(filteredPlayers, category);
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    const timestamp = new Date().toISOString().slice(0, 10);
+    link.href = url;
+    link.download = `lista-de-buena-fe-${timestamp}.xlsx`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    setSuccessMessage(`Exportacion completada: ${filteredPlayers.length} jugador(es).`);
+  }
+
   async function handleToggleActive(player) {
     const isActive = player.is_active !== false;
     const actionLabel = isActive ? 'inactivar' : 'reactivar';
 
-    if (!window.confirm(`¿Seguro que queres ${actionLabel} este jugador?`)) {
+    if (!window.confirm(`Seguro que queres ${actionLabel} este jugador?`)) {
       return;
     }
 
@@ -249,7 +274,7 @@ function PlayersList() {
 
     if (
       !window.confirm(
-        `¿Seguro que queres eliminar a ${fullName}? Esta accion no se puede deshacer.`
+        `Seguro que queres eliminar a ${fullName}? Esta accion no se puede deshacer.`
       )
     ) {
       return;
@@ -366,7 +391,7 @@ function PlayersList() {
             </div>
 
             <div className="filters-actions">
-              <div className="button-row">
+              <div className="button-row filters-button-row">
                 <button
                   type="button"
                   className="secondary-button"
@@ -377,10 +402,18 @@ function PlayersList() {
                 <button
                   type="button"
                   className="primary-button"
-                  onClick={handleExportFilteredPlayers}
+                  onClick={handleExportCsvPlayers}
                   disabled={filteredPlayers.length === 0}
                 >
                   Exportar filtrados (CSV)
+                </button>
+                <button
+                  type="button"
+                  className="primary-button"
+                  onClick={handleExportGoodFaithPlayers}
+                  disabled={filteredPlayers.length === 0}
+                >
+                  Lista de Buena Fe
                 </button>
               </div>
             </div>
