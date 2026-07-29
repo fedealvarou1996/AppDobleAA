@@ -292,6 +292,7 @@ function PlayerForm() {
               Cuota al dia
             </label>
           </div>
+
         </div>
 
         <div className="form-field">

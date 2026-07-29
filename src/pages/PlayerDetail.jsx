@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { resolvePlayerPhotoUrl } from '../utils/playerPhotoUrl';
 import { getEffectivePaymentStatus, isCurrentMonthlyPeriod } from '../utils/paymentPeriod';
+import { getPlayerCompleteness } from '../utils/playerCompleteness';
 
 function formatDate(value) {
   if (!value) return '-';
@@ -395,6 +396,10 @@ function PlayerDetail() {
       .map((playerTeam) => playerTeam.teams?.name)
       .filter(Boolean)
       .join(', ') || '-';
+  const completeness = getPlayerCompleteness(
+    player,
+    playerTeams.map((playerTeam) => playerTeam.teams?.name).filter(Boolean)
+  );
 
   return (
     <div className="page-container">
@@ -428,6 +433,27 @@ function PlayerDetail() {
 
       {errorMessage && <div className="alert alert-error">{errorMessage}</div>}
       {successMessage && <div className="alert alert-success">{successMessage}</div>}
+
+      <section
+        className={`profile-completeness-card ${
+          completeness.isComplete ? 'profile-completeness-complete' : 'profile-completeness-missing'
+        }`}
+      >
+        <div>
+          <span className="detail-label">Estado del perfil</span>
+          <strong>{completeness.label}</strong>
+          {!completeness.isComplete && (
+            <p>Falta completar: {completeness.missingFields.join(', ')}.</p>
+          )}
+        </div>
+        <button
+          type="button"
+          className={completeness.isComplete ? 'secondary-button' : 'primary-button'}
+          onClick={() => navigate(`/players/${id}/edit`)}
+        >
+          Completar ficha
+        </button>
+      </section>
 
       <section className="detail-card">
         {renderPhotoUrl && (

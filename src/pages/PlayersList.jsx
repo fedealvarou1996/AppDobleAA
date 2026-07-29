@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { getEffectivePaymentStatus } from '../utils/paymentPeriod';
 import { buildGoodFaithXlsxBlob } from '../utils/goodFaithExport';
+import { getPlayerCompleteness } from '../utils/playerCompleteness';
 
 async function getFunctionErrorMessage(error, fallbackMessage) {
   if (error?.context && typeof error.context.json === 'function') {
@@ -219,6 +220,18 @@ function PlayersList() {
 
   function getPlayerTeamLabel(playerId) {
     return playerTeamsByPlayerId[playerId]?.join(', ') || '-';
+  }
+
+  function getPlayerTeamNames(playerId) {
+    return playerTeamsByPlayerId[playerId] || [];
+  }
+
+  function getPlayerFullName(player) {
+    return `${player.first_name || ''} ${player.last_name || ''}`.trim() || '-';
+  }
+
+  function formatPlayerDate(value) {
+    return value ? new Date(value).toLocaleDateString('es-AR') : '-';
   }
 
   const visibleSelectedCount = filteredPlayers.filter((player) =>
@@ -725,7 +738,126 @@ function PlayersList() {
           <p>Proba cambiando la busqueda o limpiando los filtros.</p>
         </div>
       ) : (
-        <div className="table-card">
+        <>
+        <div className="players-mobile-cards">
+          {filteredPlayers.map((player) => {
+            const isSelected = selectedPlayerIds.includes(player.id);
+            const isPaid = getEffectivePaymentStatus(player);
+            const isActive = player.is_active !== false;
+            const completeness = getPlayerCompleteness(player, getPlayerTeamNames(player.id));
+
+            return (
+              <article
+                key={player.id}
+                className={`player-mobile-card ${isSelected ? 'player-mobile-card-selected' : ''}`}
+              >
+                <div className="player-mobile-card-header">
+                  <label className="player-mobile-select">
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => togglePlayerSelection(player.id)}
+                      aria-label={`Seleccionar a ${getPlayerFullName(player)}`}
+                    />
+                  </label>
+
+                  {(player.photo_thumb_url || player.photo_url) ? (
+                    <img
+                      className="player-mobile-photo"
+                      src={player.photo_thumb_url || player.photo_url}
+                      alt={`Foto de ${getPlayerFullName(player)}`}
+                      loading="lazy"
+                      decoding="async"
+                    />
+                  ) : (
+                    <div className="player-mobile-photo-placeholder">
+                      {getPlayerFullName(player).slice(0, 1)}
+                    </div>
+                  )}
+
+                  <div className="player-mobile-title">
+                    <h2>{getPlayerFullName(player)}</h2>
+                    <span>DNI {player.dni || '-'}</span>
+                  </div>
+                </div>
+
+                <div className="player-mobile-meta">
+                  <div>
+                    <span>Categoria</span>
+                    <strong>{player.category || '-'}</strong>
+                  </div>
+                  <div>
+                    <span>Equipos</span>
+                    <strong>{getPlayerTeamLabel(player.id)}</strong>
+                  </div>
+                  <div>
+                    <span>Cuota</span>
+                    <strong className={isPaid ? 'mobile-status-success' : 'mobile-status-warning'}>
+                      {isPaid ? 'Al dia' : 'Pendiente'}
+                    </strong>
+                  </div>
+                  <div>
+                    <span>Estado</span>
+                    <strong>{isActive ? 'Activo' : 'Inactivo'}</strong>
+                  </div>
+                  <div>
+                    <span>Perfil</span>
+                    <strong
+                      className={
+                        completeness.isComplete ? 'mobile-status-success' : 'mobile-status-warning'
+                      }
+                    >
+                      {completeness.label}
+                    </strong>
+                  </div>
+                  <div>
+                    <span>Ultimo pago</span>
+                    <strong>{formatPlayerDate(player.last_payment_date)}</strong>
+                  </div>
+                  <div>
+                    <span>Alta</span>
+                    <strong>{formatPlayerDate(player.created_at)}</strong>
+                  </div>
+                </div>
+
+                <div className="player-mobile-actions">
+                  <button
+                    className="secondary-button small-button"
+                    onClick={() => navigate(`/players/${player.id}`)}
+                    disabled={processingId === player.id}
+                  >
+                    Ver
+                  </button>
+                  <button
+                    className="secondary-button small-button"
+                    onClick={() => navigate(`/players/${player.id}/edit`)}
+                    disabled={processingId === player.id}
+                  >
+                    Editar
+                  </button>
+                  <button
+                    type="button"
+                    className="secondary-button small-button"
+                    onClick={() => handleToggleActive(player)}
+                    disabled={processingId === player.id}
+                  >
+                    {isActive ? 'Inactivar' : 'Reactivar'}
+                  </button>
+                  <button
+                    type="button"
+                    className="danger-button small-button"
+                    onClick={() => handleDelete(player)}
+                    disabled={processingId === player.id}
+                  >
+                    Eliminar
+                  </button>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+
+        <div className="table-card players-table-card">
           <table>
             <thead>
               <tr>
@@ -743,6 +875,7 @@ function PlayersList() {
                 <th>Equipo</th>
                 <th>Cuota</th>
                 <th>Estado</th>
+                <th>Perfil</th>
                 <th>Ultimo pago</th>
                 <th>Fecha de alta</th>
                 <th>Acciones</th>
@@ -771,8 +904,7 @@ function PlayersList() {
                         />
                       )}
                       <span>
-                        {`${player.first_name || ''} ${player.last_name || ''}`.trim() ||
-                          '-'}
+                        {getPlayerFullName(player)}
                       </span>
                     </div>
                   </td>
@@ -782,13 +914,35 @@ function PlayersList() {
                   <td>{getEffectivePaymentStatus(player) ? 'Al dia' : 'Pendiente'}</td>
                   <td>{player.is_active === false ? 'Inactivo' : 'Activo'}</td>
                   <td>
+                    {(() => {
+                      const completeness = getPlayerCompleteness(
+                        player,
+                        getPlayerTeamNames(player.id)
+                      );
+                      return (
+                        <span
+                          className={`badge ${
+                            completeness.isComplete ? 'badge-success' : 'badge-warning'
+                          }`}
+                          title={
+                            completeness.isComplete
+                              ? 'Perfil completo'
+                              : `Falta: ${completeness.missingFields.join(', ')}`
+                          }
+                        >
+                          {completeness.label}
+                        </span>
+                      );
+                    })()}
+                  </td>
+                  <td>
                     {player.last_payment_date
-                      ? new Date(player.last_payment_date).toLocaleDateString('es-AR')
+                      ? formatPlayerDate(player.last_payment_date)
                       : '-'}
                   </td>
                   <td>
                     {player.created_at
-                      ? new Date(player.created_at).toLocaleDateString('es-AR')
+                      ? formatPlayerDate(player.created_at)
                       : '-'}
                   </td>
                   <td>
@@ -830,6 +984,7 @@ function PlayersList() {
             </tbody>
           </table>
         </div>
+        </>
       )}
     </div>
   );

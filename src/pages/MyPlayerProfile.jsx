@@ -4,6 +4,7 @@ import { useAuth } from '../context/useAuth';
 import { supabase } from '../lib/supabaseClient';
 import { resolvePlayerPhotoUrl } from '../utils/playerPhotoUrl';
 import { getEffectivePaymentStatus } from '../utils/paymentPeriod';
+import { getPlayerCompleteness } from '../utils/playerCompleteness';
 import {
   removePlayerPhotoSet,
   uploadPlayerPhoto,
@@ -247,6 +248,10 @@ function MyPlayerProfile() {
       .map((playerTeam) => playerTeam.teams?.name)
       .filter(Boolean)
       .join(', ') || '-';
+  const completeness = getPlayerCompleteness(
+    player,
+    playerTeams.map((playerTeam) => playerTeam.teams?.name).filter(Boolean)
+  );
   const verificationUrl = player?.id ? `${window.location.origin}/verify/${player.id}` : '';
   const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=170x170&data=${encodeURIComponent(verificationUrl)}`;
 
@@ -281,6 +286,24 @@ function MyPlayerProfile() {
 
       {!errorMessage && !notFound && player && (
         <>
+          <section
+            className={`profile-completeness-card ${
+              completeness.isComplete
+                ? 'profile-completeness-complete'
+                : 'profile-completeness-missing'
+            }`}
+          >
+            <div>
+              <span className="detail-label">Estado del perfil</span>
+              <strong>{completeness.label}</strong>
+              {!completeness.isComplete && (
+                <p>
+                  Falta completar: {completeness.missingFields.join(', ')}.
+                </p>
+              )}
+            </div>
+          </section>
+
           <section className="member-card">
             <div className="member-card-banner">Carnet de asociado virtual</div>
 
