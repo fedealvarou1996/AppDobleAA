@@ -61,6 +61,7 @@ function PlayerDetail() {
   const [notFound, setNotFound] = useState(false);
   const [inviting, setInviting] = useState(false);
   const [renderPhotoUrl, setRenderPhotoUrl] = useState('');
+  const [playerTeams, setPlayerTeams] = useState([]);
   const [payments, setPayments] = useState([]);
   const [paymentSaving, setPaymentSaving] = useState(false);
   const [deletingPaymentId, setDeletingPaymentId] = useState('');
@@ -79,6 +80,7 @@ function PlayerDetail() {
       setSuccessMessage('');
       setNotFound(false);
       setRenderPhotoUrl('');
+      setPlayerTeams([]);
 
       const { data, error } = await supabase
         .from('players')
@@ -104,11 +106,27 @@ function PlayerDetail() {
       const resolvedPhotoUrl = await resolvePlayerPhotoUrl(data.photo_url || '');
       setRenderPhotoUrl(resolvedPhotoUrl);
 
-      const { data: paymentsData, error: paymentsError } = await supabase
-        .from('player_payments')
-        .select('*')
-        .eq('player_id', id)
-        .order('payment_date', { ascending: false });
+      const [
+        { data: playerTeamsData, error: playerTeamsError },
+        { data: paymentsData, error: paymentsError },
+      ] = await Promise.all([
+        supabase
+          .from('player_teams')
+          .select('id, teams(name, slug)')
+          .eq('player_id', id),
+        supabase
+          .from('player_payments')
+          .select('*')
+          .eq('player_id', id)
+          .order('payment_date', { ascending: false }),
+      ]);
+
+      if (playerTeamsError) {
+        console.error('Error cargando equipos del jugador:', playerTeamsError);
+        setErrorMessage('No se pudieron cargar los equipos del jugador.');
+        setLoading(false);
+        return;
+      }
 
       if (paymentsError) {
         console.error('Error cargando historial de pagos:', paymentsError);
@@ -117,6 +135,7 @@ function PlayerDetail() {
         return;
       }
 
+      setPlayerTeams(playerTeamsData || []);
       setPayments(paymentsData || []);
       setLoading(false);
     }
@@ -371,6 +390,11 @@ function PlayerDetail() {
     `${player.first_name || ''} ${player.last_name || ''}`.trim() || '-';
   const effectivePaymentStatus = getEffectivePaymentStatus(player);
   const paymentLabel = effectivePaymentStatus ? 'Al dia' : 'Pendiente';
+  const teamsLabel =
+    playerTeams
+      .map((playerTeam) => playerTeam.teams?.name)
+      .filter(Boolean)
+      .join(', ') || '-';
 
   return (
     <div className="page-container">
@@ -432,6 +456,11 @@ function PlayerDetail() {
           <div className="detail-item">
             <span className="detail-label">Categoria</span>
             <span className="detail-value">{formatText(player.category)}</span>
+          </div>
+
+          <div className="detail-item">
+            <span className="detail-label">Equipos</span>
+            <span className="detail-value">{teamsLabel}</span>
           </div>
 
           <div className="detail-item">

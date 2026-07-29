@@ -40,17 +40,27 @@ function PlayerEdit() {
   const [photoPreviewUrl, setPhotoPreviewUrl] = useState('');
   const [existingPhotoUrl, setExistingPhotoUrl] = useState('');
   const [existingPhotoThumbUrl, setExistingPhotoThumbUrl] = useState('');
+  const [teams, setTeams] = useState([]);
+  const [selectedTeamIds, setSelectedTeamIds] = useState([]);
+  const [initialTeamIds, setInitialTeamIds] = useState([]);
 
   useEffect(() => {
     async function loadPlayer() {
       setLoading(true);
       setErrorMessage('');
 
-      const { data, error } = await supabase
-        .from('players')
-        .select('*')
-        .eq('id', id)
-        .maybeSingle();
+      const [
+        { data, error },
+        { data: teamsData, error: teamsError },
+        { data: playerTeamsData, error: playerTeamsError },
+      ] = await Promise.all([
+        supabase.from('players').select('*').eq('id', id).maybeSingle(),
+        supabase
+          .from('teams')
+          .select('id, name, slug, is_active')
+          .order('name', { ascending: true }),
+        supabase.from('player_teams').select('team_id').eq('player_id', id),
+      ]);
 
       if (error) {
         console.error('Error cargando jugador:', error);
@@ -63,6 +73,22 @@ function PlayerEdit() {
         setErrorMessage('No se encontro el jugador.');
         setLoading(false);
         return;
+      }
+
+      if (teamsError) {
+        console.error('Error cargando equipos:', teamsError);
+        setErrorMessage('No se pudieron cargar los equipos.');
+      } else {
+        setTeams((teamsData || []).filter((team) => team.is_active !== false));
+      }
+
+      if (playerTeamsError) {
+        console.error('Error cargando equipos del jugador:', playerTeamsError);
+        setErrorMessage('No se pudieron cargar los equipos del jugador.');
+      } else {
+        const loadedTeamIds = (playerTeamsData || []).map((playerTeam) => playerTeam.team_id);
+        setSelectedTeamIds(loadedTeamIds);
+        setInitialTeamIds(loadedTeamIds);
       }
 
       setFormData({
@@ -96,6 +122,14 @@ function PlayerEdit() {
       ...prev,
       [name]: type === 'checkbox' ? checked : value,
     }));
+  }
+
+  function handleTeamToggle(teamId) {
+    setSelectedTeamIds((current) =>
+      current.includes(teamId)
+        ? current.filter((currentTeamId) => currentTeamId !== teamId)
+        : [...current, teamId]
+    );
   }
 
   function handlePhotoChange(event) {
@@ -244,6 +278,44 @@ function PlayerEdit() {
       return;
     }
 
+    const initialTeamSet = new Set(initialTeamIds);
+    const selectedTeamSet = new Set(selectedTeamIds);
+    const teamsToAdd = selectedTeamIds.filter((teamId) => !initialTeamSet.has(teamId));
+    const teamsToRemove = initialTeamIds.filter((teamId) => !selectedTeamSet.has(teamId));
+
+    if (teamsToAdd.length > 0) {
+      const rows = teamsToAdd.map((teamId) => ({
+        player_id: id,
+        team_id: teamId,
+      }));
+      const { error: addTeamsError } = await supabase.from('player_teams').upsert(rows, {
+        onConflict: 'player_id,team_id',
+        ignoreDuplicates: true,
+      });
+
+      if (addTeamsError) {
+        console.error('Error agregando equipos:', addTeamsError);
+        setErrorMessage('Se guardo el jugador, pero no se pudieron agregar los equipos.');
+        setSaving(false);
+        return;
+      }
+    }
+
+    if (teamsToRemove.length > 0) {
+      const { error: removeTeamsError } = await supabase
+        .from('player_teams')
+        .delete()
+        .eq('player_id', id)
+        .in('team_id', teamsToRemove);
+
+      if (removeTeamsError) {
+        console.error('Error quitando equipos:', removeTeamsError);
+        setErrorMessage('Se guardo el jugador, pero no se pudieron quitar los equipos.');
+        setSaving(false);
+        return;
+      }
+    }
+
     if (photoFile && previousPhotoUrl && previousPhotoUrl !== uploadedPhotoUrl) {
       await removePlayerPhotoSet(previousPhotoUrl, previousPhotoThumbUrl);
     }
@@ -361,6 +433,26 @@ function PlayerEdit() {
               />
               Cuota al dia
             </label>
+          </div>
+
+          <div className="form-field teams-field">
+            <label>Equipos</label>
+            <div className="teams-checkbox-list">
+              {teams.length === 0 ? (
+                <span className="muted">No hay equipos disponibles.</span>
+              ) : (
+                teams.map((team) => (
+                  <label key={team.id}>
+                    <input
+                      type="checkbox"
+                      checked={selectedTeamIds.includes(team.id)}
+                      onChange={() => handleTeamToggle(team.id)}
+                    />
+                    {team.name}
+                  </label>
+                ))
+              )}
+            </div>
           </div>
         </div>
 

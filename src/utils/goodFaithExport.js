@@ -42,7 +42,7 @@ function formatBirthDate(value) {
   return date.toLocaleDateString('es-AR');
 }
 
-function buildSheetXml(players, category) {
+function buildSheetXml(players, category, teamName) {
   const headerRow = [
     textCell('A3', 'Nro'),
     textCell('B3', 'Nombre y Apellido'),
@@ -70,6 +70,7 @@ function buildSheetXml(players, category) {
   <sheetData>
     <row r="1">
       <c r="B1" t="inlineStr"><is><t xml:space="preserve">Nombre del equipo</t></is></c>
+      ${teamName ? `<c r="C1" t="inlineStr"><is><t xml:space="preserve">${escapeXml(teamName)}</t></is></c>` : ''}
       <c r="E1" t="inlineStr"><is><t xml:space="preserve">Categoria</t></is></c>
       ${category ? `<c r="F1" t="inlineStr"><is><t xml:space="preserve">${escapeXml(category)}</t></is></c>` : ''}
     </row>
@@ -193,7 +194,7 @@ function createStoredZip(entries) {
   });
 }
 
-export function buildGoodFaithXlsxBlob(players, category) {
+export function buildGoodFaithXlsxBlob(players, category, teamName = '') {
   const workbookXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
   <sheets>
@@ -224,6 +225,6 @@ export function buildGoodFaithXlsxBlob(players, category) {
     { name: '_rels/.rels', content: rootRelsXml },
     { name: 'xl/workbook.xml', content: workbookXml },
     { name: 'xl/_rels/workbook.xml.rels', content: workbookRelsXml },
-    { name: 'xl/worksheets/sheet1.xml', content: buildSheetXml(players, category) },
+    { name: 'xl/worksheets/sheet1.xml', content: buildSheetXml(players, category, teamName) },
   ]);
 }

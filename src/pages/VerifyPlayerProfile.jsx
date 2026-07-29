@@ -96,6 +96,7 @@ function VerifyPlayerProfile() {
   const memberId = formatMemberId(player);
   const effectivePaymentStatus = getEffectivePaymentStatus(player);
   const paymentLabel = effectivePaymentStatus ? 'Al dia' : 'Pendiente';
+  const teamsLabel = player.teams || '-';
 
   return (
     <div className="verify-page-wrap">
@@ -169,6 +170,9 @@ function VerifyPlayerProfile() {
             </p>
             <p>
               <span>Tipo de membresia:</span> Atleta Federado
+            </p>
+            <p>
+              <span>Equipos:</span> {teamsLabel}
             </p>
             <p>
               <span>Fecha de emision:</span> {formatDate(player.created_at)}

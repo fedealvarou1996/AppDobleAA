@@ -4,6 +4,11 @@ import { useAuth } from '../context/useAuth';
 import { supabase } from '../lib/supabaseClient';
 import { resolvePlayerPhotoUrl } from '../utils/playerPhotoUrl';
 import { getEffectivePaymentStatus } from '../utils/paymentPeriod';
+import {
+  removePlayerPhotoSet,
+  uploadPlayerPhoto,
+  validatePlayerPhoto,
+} from '../utils/playerPhotoUpload';
 
 function formatDate(value) {
   if (!value) return '-';
@@ -46,7 +51,10 @@ function MyPlayerProfile() {
   const [errorMessage, setErrorMessage] = useState('');
   const [notFound, setNotFound] = useState(false);
   const [renderPhotoUrl, setRenderPhotoUrl] = useState('');
+  const [playerTeams, setPlayerTeams] = useState([]);
   const [payments, setPayments] = useState([]);
+  const [successMessage, setSuccessMessage] = useState('');
+  const [photoUploading, setPhotoUploading] = useState(false);
 
   useEffect(() => {
     async function loadPlayerProfile() {
@@ -57,8 +65,10 @@ function MyPlayerProfile() {
 
       setLoading(true);
       setErrorMessage('');
+      setSuccessMessage('');
       setNotFound(false);
       setRenderPhotoUrl('');
+      setPlayerTeams([]);
       setPayments([]);
 
       const { data, error } = await supabase
@@ -78,12 +88,19 @@ function MyPlayerProfile() {
       if (data) {
         setPlayer(data);
         setRenderPhotoUrl(await resolvePlayerPhotoUrl(data.photo_url || ''));
-        const { data: paymentsData } = await supabase
-          .from('player_payments')
-          .select('*')
-          .eq('player_id', data.id)
-          .order('payment_date', { ascending: false })
-          .limit(10);
+        const [{ data: playerTeamsData }, { data: paymentsData }] = await Promise.all([
+          supabase
+            .from('player_teams')
+            .select('id, teams(name, slug)')
+            .eq('player_id', data.id),
+          supabase
+            .from('player_payments')
+            .select('*')
+            .eq('player_id', data.id)
+            .order('payment_date', { ascending: false })
+            .limit(10),
+        ]);
+        setPlayerTeams(playerTeamsData || []);
         setPayments(paymentsData || []);
         setLoading(false);
         return;
@@ -112,12 +129,19 @@ function MyPlayerProfile() {
 
       setPlayer(legacyData);
       setRenderPhotoUrl(await resolvePlayerPhotoUrl(legacyData.photo_url || ''));
-      const { data: legacyPayments } = await supabase
-        .from('player_payments')
-        .select('*')
-        .eq('player_id', legacyData.id)
-        .order('payment_date', { ascending: false })
-        .limit(10);
+      const [{ data: legacyPlayerTeams }, { data: legacyPayments }] = await Promise.all([
+        supabase
+          .from('player_teams')
+          .select('id, teams(name, slug)')
+          .eq('player_id', legacyData.id),
+        supabase
+          .from('player_payments')
+          .select('*')
+          .eq('player_id', legacyData.id)
+          .order('payment_date', { ascending: false })
+          .limit(10),
+      ]);
+      setPlayerTeams(legacyPlayerTeams || []);
       setPayments(legacyPayments || []);
       setLoading(false);
     }
@@ -130,6 +154,74 @@ function MyPlayerProfile() {
       await signOut();
     } finally {
       navigate('/login', { replace: true });
+    }
+  }
+
+  async function handlePhotoUpload(event) {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+
+    if (!file || !player?.id) {
+      return;
+    }
+
+    const photoValidationMessage = validatePlayerPhoto(file);
+    if (photoValidationMessage) {
+      setErrorMessage(photoValidationMessage);
+      setSuccessMessage('');
+      return;
+    }
+
+    setPhotoUploading(true);
+    setErrorMessage('');
+    setSuccessMessage('');
+
+    const previousPhotoUrl = player.photo_url || null;
+    const previousPhotoThumbUrl = player.photo_thumb_url || null;
+    let uploadResult = null;
+
+    try {
+      uploadResult = await uploadPlayerPhoto(file, player.id);
+
+      const { data, error } = await supabase.rpc('update_own_player_photo', {
+        p_player_id: player.id,
+        p_photo_url: uploadResult.publicUrl,
+        p_photo_thumb_url: uploadResult.thumbPublicUrl,
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      const updatedPhotoRow = Array.isArray(data) ? data[0] : data;
+
+      setPlayer((currentPlayer) =>
+        currentPlayer
+          ? {
+              ...currentPlayer,
+              photo_url: updatedPhotoRow?.photo_url || uploadResult.publicUrl,
+              photo_thumb_url: updatedPhotoRow?.photo_thumb_url || uploadResult.thumbPublicUrl,
+              updated_at: updatedPhotoRow?.updated_at || new Date().toISOString(),
+            }
+          : currentPlayer
+      );
+      setRenderPhotoUrl(await resolvePlayerPhotoUrl(uploadResult.publicUrl));
+
+      if (previousPhotoUrl && previousPhotoUrl !== uploadResult.publicUrl) {
+        await removePlayerPhotoSet(previousPhotoUrl, previousPhotoThumbUrl);
+      }
+
+      setSuccessMessage('Foto actualizada correctamente.');
+    } catch (photoError) {
+      console.error('Error actualizando foto propia:', photoError);
+
+      if (uploadResult?.publicUrl) {
+        await removePlayerPhotoSet(uploadResult.publicUrl, uploadResult.thumbPublicUrl);
+      }
+
+      setErrorMessage(photoError.message || 'No se pudo actualizar la foto.');
+    } finally {
+      setPhotoUploading(false);
     }
   }
 
@@ -150,6 +242,11 @@ function MyPlayerProfile() {
   const memberId = formatMemberId(player);
   const issueDate = formatDate(player?.created_at);
   const dueDate = formatDate(player?.last_payment_date);
+  const teamsLabel =
+    playerTeams
+      .map((playerTeam) => playerTeam.teams?.name)
+      .filter(Boolean)
+      .join(', ') || '-';
   const verificationUrl = `${window.location.origin}/verify/${player.id}`;
   const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=170x170&data=${encodeURIComponent(verificationUrl)}`;
 
@@ -173,6 +270,7 @@ function MyPlayerProfile() {
       </div>
 
       {errorMessage && <div className="alert alert-error">{errorMessage}</div>}
+      {successMessage && <div className="alert alert-success">{successMessage}</div>}
 
       {notFound && (
         <div className="empty-card">
@@ -200,6 +298,22 @@ function MyPlayerProfile() {
                   </div>
                 )}
 
+                {!renderPhotoUrl && (
+                  <div className="member-card-photo-placeholder">
+                    Sin foto cargada
+                  </div>
+                )}
+
+                <label className="primary-button photo-upload-button">
+                  {photoUploading ? 'Subiendo foto...' : 'Cambiar foto'}
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp"
+                    onChange={handlePhotoUpload}
+                    disabled={photoUploading}
+                  />
+                </label>
+
                 <div className="member-card-qr-frame">
                   <img
                     className="member-card-qr"
@@ -221,6 +335,9 @@ function MyPlayerProfile() {
                 </p>
                 <p>
                   <span>Tipo de membresia:</span> Atleta Federado
+                </p>
+                <p>
+                  <span>Equipos:</span> {teamsLabel}
                 </p>
                 <p>
                   <span>Fecha de emision:</span> {issueDate}
@@ -255,6 +372,11 @@ function MyPlayerProfile() {
               <div className="detail-item">
                 <span className="detail-label">Categoria</span>
                 <span className="detail-value">{formatText(player.category)}</span>
+              </div>
+
+              <div className="detail-item">
+                <span className="detail-label">Equipos</span>
+                <span className="detail-value">{teamsLabel}</span>
               </div>
 
               <div className="detail-item">
