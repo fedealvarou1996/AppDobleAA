@@ -247,7 +247,7 @@ function MyPlayerProfile() {
       .map((playerTeam) => playerTeam.teams?.name)
       .filter(Boolean)
       .join(', ') || '-';
-  const verificationUrl = `${window.location.origin}/verify/${player.id}`;
+  const verificationUrl = player?.id ? `${window.location.origin}/verify/${player.id}` : '';
   const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=170x170&data=${encodeURIComponent(verificationUrl)}`;
 
   return (

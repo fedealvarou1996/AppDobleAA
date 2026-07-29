@@ -313,10 +313,12 @@ body {
 
 .table-card {
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .table-card table {
   width: 100%;
+  min-width: 760px;
   border-collapse: collapse;
 }
 
@@ -839,6 +841,10 @@ textarea {
   font: inherit;
 }
 
+input[type='file'] {
+  max-width: 100%;
+}
+
 button:disabled {
   cursor: not-allowed;
   opacity: 0.7;
@@ -920,6 +926,10 @@ button:disabled {
   .table-actions .secondary-button,
   .table-actions .danger-button {
     width: auto;
+  }
+
+  .table-card table {
+    min-width: 820px;
   }
 
   .auth-card {
