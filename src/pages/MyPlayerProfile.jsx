@@ -56,6 +56,8 @@ function MyPlayerProfile() {
   const [payments, setPayments] = useState([]);
   const [successMessage, setSuccessMessage] = useState('');
   const [photoUploading, setPhotoUploading] = useState(false);
+  const [jerseyNumberInput, setJerseyNumberInput] = useState('');
+  const [jerseySaving, setJerseySaving] = useState(false);
 
   useEffect(() => {
     async function loadPlayerProfile() {
@@ -88,6 +90,7 @@ function MyPlayerProfile() {
 
       if (data) {
         setPlayer(data);
+        setJerseyNumberInput(data.jersey_number || '');
         setRenderPhotoUrl(await resolvePlayerPhotoUrl(data.photo_url || ''));
         const [{ data: playerTeamsData }, { data: paymentsData }] = await Promise.all([
           supabase
@@ -129,6 +132,7 @@ function MyPlayerProfile() {
       }
 
       setPlayer(legacyData);
+      setJerseyNumberInput(legacyData.jersey_number || '');
       setRenderPhotoUrl(await resolvePlayerPhotoUrl(legacyData.photo_url || ''));
       const [{ data: legacyPlayerTeams }, { data: legacyPayments }] = await Promise.all([
         supabase
@@ -224,6 +228,46 @@ function MyPlayerProfile() {
     } finally {
       setPhotoUploading(false);
     }
+  }
+
+  async function handleJerseySubmit(event) {
+    event.preventDefault();
+
+    if (!player?.id) {
+      return;
+    }
+
+    setJerseySaving(true);
+    setErrorMessage('');
+    setSuccessMessage('');
+
+    const { data, error } = await supabase.rpc('update_own_player_jersey', {
+      p_player_id: player.id,
+      p_jersey_number: jerseyNumberInput,
+    });
+
+    if (error) {
+      console.error('Error actualizando camiseta propia:', error);
+      setErrorMessage(error.message || 'No se pudo actualizar la camiseta.');
+      setJerseySaving(false);
+      return;
+    }
+
+    const updatedRow = Array.isArray(data) ? data[0] : data;
+    const updatedJerseyNumber = updatedRow?.jersey_number || '';
+
+    setPlayer((currentPlayer) =>
+      currentPlayer
+        ? {
+            ...currentPlayer,
+            jersey_number: updatedJerseyNumber,
+            updated_at: updatedRow?.updated_at || new Date().toISOString(),
+          }
+        : currentPlayer
+    );
+    setJerseyNumberInput(updatedJerseyNumber);
+    setSuccessMessage('Camiseta actualizada correctamente.');
+    setJerseySaving(false);
   }
 
   if (loading) {
@@ -360,6 +404,9 @@ function MyPlayerProfile() {
                   <span>Tipo de membresia:</span> Atleta Federado
                 </p>
                 <p>
+                  <span>Camiseta:</span> {formatText(player.jersey_number)}
+                </p>
+                <p>
                   <span>Equipos:</span> {teamsLabel}
                 </p>
                 <p>
@@ -385,6 +432,22 @@ function MyPlayerProfile() {
               <div className="detail-item">
                 <span className="detail-label">DNI</span>
                 <span className="detail-value">{formatText(player.dni)}</span>
+              </div>
+
+              <div className="detail-item">
+                <span className="detail-label">Camiseta</span>
+                <form className="jersey-inline-form" onSubmit={handleJerseySubmit}>
+                  <input
+                    name="jersey_number"
+                    aria-label="Numero de camiseta"
+                    placeholder="Ej: 10"
+                    value={jerseyNumberInput}
+                    onChange={(event) => setJerseyNumberInput(event.target.value)}
+                  />
+                  <button type="submit" className="secondary-button small-button" disabled={jerseySaving}>
+                    {jerseySaving ? 'Guardando...' : 'Guardar'}
+                  </button>
+                </form>
               </div>
 
               <div className="detail-item">

@@ -378,6 +378,7 @@ function PlayersList() {
       'Nombre',
       'Apellido',
       'DNI',
+      'Camiseta',
       'Categoria',
       'Telefono',
       'Email',
@@ -399,6 +400,7 @@ function PlayersList() {
       player.first_name || '',
       player.last_name || '',
       player.dni || '',
+      player.jersey_number || '',
       player.category || '',
       player.phone || '',
       player.email || '',
@@ -783,6 +785,10 @@ function PlayersList() {
 
                 <div className="player-mobile-meta">
                   <div>
+                    <span>Camiseta</span>
+                    <strong>{player.jersey_number || '-'}</strong>
+                  </div>
+                  <div>
                     <span>Categoria</span>
                     <strong>{player.category || '-'}</strong>
                   </div>
@@ -871,6 +877,7 @@ function PlayersList() {
                 </th>
                 <th>Nombre</th>
                 <th>DNI</th>
+                <th>Camiseta</th>
                 <th>Categoria</th>
                 <th>Equipo</th>
                 <th>Cuota</th>
@@ -909,6 +916,7 @@ function PlayersList() {
                     </div>
                   </td>
                   <td>{player.dni || '-'}</td>
+                  <td>{player.jersey_number || '-'}</td>
                   <td>{player.category || '-'}</td>
                   <td>{getPlayerTeamLabel(player.id)}</td>
                   <td>{getEffectivePaymentStatus(player) ? 'Al dia' : 'Pendiente'}</td>

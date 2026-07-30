@@ -475,6 +475,11 @@ function PlayerDetail() {
           </div>
 
           <div className="detail-item">
+            <span className="detail-label">Camiseta</span>
+            <span className="detail-value">{formatText(player.jersey_number)}</span>
+          </div>
+
+          <div className="detail-item">
             <span className="detail-label">Fecha de nacimiento</span>
             <span className="detail-value">{formatDate(player.birth_date)}</span>
           </div>

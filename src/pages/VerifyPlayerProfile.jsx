@@ -172,6 +172,9 @@ function VerifyPlayerProfile() {
               <span>Tipo de membresia:</span> Atleta Federado
             </p>
             <p>
+              <span>Camiseta:</span> {player.jersey_number || '-'}
+            </p>
+            <p>
               <span>Equipos:</span> {teamsLabel}
             </p>
             <p>

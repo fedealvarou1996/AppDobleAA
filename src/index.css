@@ -369,21 +369,82 @@ body {
   display: none;
 }
 
+.players-table-card {
+  padding-inline: 20px;
+}
+
+.players-table-card table {
+  min-width: 0;
+  table-layout: fixed;
+}
+
+.players-table-card th,
+.players-table-card td {
+  padding-inline: 6px;
+}
+
+.players-table-card th:nth-child(1),
+.players-table-card td:nth-child(1) {
+  width: 34px;
+}
+
+.players-table-card th:nth-child(2),
+.players-table-card td:nth-child(2) {
+  width: 108px;
+}
+
+.players-table-card th:nth-child(3),
+.players-table-card td:nth-child(3) {
+  width: 76px;
+}
+
+.players-table-card th:nth-child(4),
+.players-table-card td:nth-child(4) {
+  width: 74px;
+}
+
+.players-table-card th:nth-child(5),
+.players-table-card td:nth-child(5),
+.players-table-card th:nth-child(6),
+.players-table-card td:nth-child(6) {
+  width: 82px;
+}
+
+.players-table-card th:nth-child(7),
+.players-table-card td:nth-child(7),
+.players-table-card th:nth-child(8),
+.players-table-card td:nth-child(8) {
+  width: 72px;
+}
+
+.players-table-card th:nth-child(9),
+.players-table-card td:nth-child(9) {
+  width: 96px;
+}
+
+.players-table-card th:nth-child(10),
+.players-table-card td:nth-child(10),
+.players-table-card th:nth-child(11),
+.players-table-card td:nth-child(11) {
+  width: 80px;
+}
+
 .players-table-card th:last-child,
 .players-table-card td:last-child {
-  width: 186px;
+  width: 134px;
 }
 
 .players-table-card .table-actions {
   display: grid;
-  grid-template-columns: repeat(2, minmax(76px, 1fr));
-  gap: 7px;
-  min-width: 170px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  min-width: 0;
 }
 
 .players-table-card .small-button {
   width: 100%;
-  padding-inline: 8px;
+  padding: 8px 6px;
+  font-size: 12px;
   text-align: center;
 }
 
@@ -713,6 +774,22 @@ body {
   text-transform: uppercase;
   font-weight: 800;
   letter-spacing: 0.06em;
+}
+
+.jersey-inline-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.jersey-inline-form input {
+  width: 100%;
+  border: 1px solid #65501a;
+  border-radius: 10px;
+  padding: 9px 10px;
+  background: #0d0d0d;
+  color: var(--text);
 }
 
 .badge {
@@ -1280,6 +1357,14 @@ button:disabled {
 
   .member-card-info p span {
     display: inline;
+  }
+
+  .jersey-inline-form {
+    grid-template-columns: 1fr;
+  }
+
+  .jersey-inline-form .small-button {
+    width: 100%;
   }
 
   .dashboard-page {

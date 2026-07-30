@@ -22,6 +22,7 @@ function PlayerEdit() {
     first_name: '',
     last_name: '',
     dni: '',
+    jersey_number: '',
     birth_date: '',
     category: '',
     phone: '',
@@ -95,6 +96,7 @@ function PlayerEdit() {
         first_name: data.first_name || '',
         last_name: data.last_name || '',
         dni: data.dni || '',
+        jersey_number: data.jersey_number || '',
         birth_date: data.birth_date || '',
         category: data.category || '',
         phone: data.phone || '',
@@ -156,6 +158,7 @@ function PlayerEdit() {
     const firstName = normalizeText(formData.first_name);
     const lastName = normalizeText(formData.last_name);
     const dni = normalizeText(formData.dni);
+    const jerseyNumber = normalizeText(formData.jersey_number);
     const email = normalizeText(formData.email);
     const category = normalizeText(formData.category);
     const userId = normalizeText(formData.user_id);
@@ -213,6 +216,27 @@ function PlayerEdit() {
       return false;
     }
 
+    if (jerseyNumber) {
+      const { data: jerseyData, error: jerseyError } = await supabase
+        .from('players')
+        .select('id')
+        .eq('jersey_number', jerseyNumber)
+        .neq('id', id)
+        .or('is_active.eq.true,is_active.is.null')
+        .limit(1);
+
+      if (jerseyError) {
+        console.error('Error validando camiseta:', jerseyError);
+        setErrorMessage('No se pudo validar la camiseta. Intenta nuevamente.');
+        return false;
+      }
+
+      if (jerseyData && jerseyData.length > 0) {
+        setErrorMessage('Ya existe otro jugador activo con esa camiseta.');
+        return false;
+      }
+    }
+
     return true;
   }
 
@@ -249,6 +273,7 @@ function PlayerEdit() {
       first_name: normalizeText(formData.first_name),
       last_name: normalizeText(formData.last_name),
       dni: normalizeText(formData.dni),
+      jersey_number: normalizeText(formData.jersey_number) || null,
       birth_date: formData.birth_date || null,
       category: normalizeText(formData.category),
       phone: normalizeText(formData.phone) || null,
@@ -363,6 +388,16 @@ function PlayerEdit() {
           <div className="form-field">
             <label>DNI</label>
             <input name="dni" value={formData.dni} onChange={handleChange} />
+          </div>
+
+          <div className="form-field">
+            <label>Camiseta</label>
+            <input
+              name="jersey_number"
+              placeholder="Numero de camiseta"
+              value={formData.jersey_number}
+              onChange={handleChange}
+            />
           </div>
 
           <div className="form-field">

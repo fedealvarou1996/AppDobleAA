@@ -9,6 +9,7 @@ returns table (
   first_name text,
   last_name text,
   photo_url text,
+  jersey_number text,
   payment_status boolean,
   created_at timestamptz,
   last_payment_date date,
@@ -23,6 +24,7 @@ as $$
     players.first_name,
     players.last_name,
     players.photo_url,
+    players.jersey_number,
     players.payment_status,
     players.created_at,
     players.last_payment_date,
@@ -43,6 +45,7 @@ as $$
     players.first_name,
     players.last_name,
     players.photo_url,
+    players.jersey_number,
     players.payment_status,
     players.created_at,
     players.last_payment_date

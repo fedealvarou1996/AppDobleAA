@@ -47,7 +47,8 @@ function buildSheetXml(players, category, teamName) {
     textCell('A3', 'Nro'),
     textCell('B3', 'Nombre y Apellido'),
     textCell('C3', 'DNI'),
-    textCell('D3', 'Fecha de nacimiento'),
+    textCell('D3', 'Camiseta'),
+    textCell('E3', 'Fecha de nacimiento'),
   ].join('');
 
   const dataRows = players
@@ -58,7 +59,8 @@ function buildSheetXml(players, category, teamName) {
         numberCell(cellRef(0, rowNumber), index + 1),
         textCell(cellRef(1, rowNumber), fullName),
         textCell(cellRef(2, rowNumber), player?.dni || ''),
-        textCell(cellRef(3, rowNumber), formatBirthDate(player?.birth_date)),
+        textCell(cellRef(3, rowNumber), player?.jersey_number || ''),
+        textCell(cellRef(4, rowNumber), formatBirthDate(player?.birth_date)),
       ].join('');
 
       return `<row r="${rowNumber}">${cells}</row>`;
