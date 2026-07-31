@@ -13,6 +13,7 @@ import {
   uploadPlayerPhoto,
   validatePlayerPhoto,
 } from '../utils/playerPhotoUpload';
+import { PLAYER_DETAIL_SELECT } from '../utils/supabaseSelects';
 
 function PlayerEdit() {
   const { id } = useParams();
@@ -55,7 +56,7 @@ function PlayerEdit() {
         { data: teamsData, error: teamsError },
         { data: playerTeamsData, error: playerTeamsError },
       ] = await Promise.all([
-        supabase.from('players').select('*').eq('id', id).maybeSingle(),
+        supabase.from('players').select(PLAYER_DETAIL_SELECT).eq('id', id).maybeSingle(),
         supabase
           .from('teams')
           .select('id, name, slug, is_active')

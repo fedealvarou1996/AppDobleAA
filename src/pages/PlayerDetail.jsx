@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabaseClient';
 import { resolvePlayerPhotoUrl } from '../utils/playerPhotoUrl';
 import { getEffectivePaymentStatus, isCurrentMonthlyPeriod } from '../utils/paymentPeriod';
 import { getPlayerCompleteness } from '../utils/playerCompleteness';
+import { PAYMENT_HISTORY_SELECT, PLAYER_DETAIL_SELECT } from '../utils/supabaseSelects';
 
 function formatDate(value) {
   if (!value) return '-';
@@ -85,7 +86,7 @@ function PlayerDetail() {
 
       const { data, error } = await supabase
         .from('players')
-        .select('*')
+        .select(PLAYER_DETAIL_SELECT)
         .eq('id', id)
         .maybeSingle();
 
@@ -117,7 +118,7 @@ function PlayerDetail() {
           .eq('player_id', id),
         supabase
           .from('player_payments')
-          .select('*')
+          .select(PAYMENT_HISTORY_SELECT)
           .eq('player_id', id)
           .order('payment_date', { ascending: false }),
       ]);
@@ -221,7 +222,7 @@ function PlayerDetail() {
     const { data: paymentData, error: paymentError } = await supabase
       .from('player_payments')
       .insert(payload)
-      .select('*')
+      .select(PAYMENT_HISTORY_SELECT)
       .single();
 
     if (paymentError) {

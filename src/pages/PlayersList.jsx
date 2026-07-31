@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabaseClient';
 import { getEffectivePaymentStatus } from '../utils/paymentPeriod';
 import { buildGoodFaithXlsxBlob } from '../utils/goodFaithExport';
 import { getPlayerCompleteness } from '../utils/playerCompleteness';
+import { PLAYER_LIST_SELECT } from '../utils/supabaseSelects';
 
 async function getFunctionErrorMessage(error, fallbackMessage) {
   if (error?.context && typeof error.context.json === 'function') {
@@ -50,7 +51,7 @@ function PlayersList() {
         { data: teamsData, error: teamsError },
         { data: playerTeamsData, error: playerTeamsError },
       ] = await Promise.all([
-          supabase.from('players').select('*').order('created_at', { ascending: false }),
+          supabase.from('players').select(PLAYER_LIST_SELECT).order('created_at', { ascending: false }),
           supabase.from('teams').select('id, name, slug, is_active').order('name', {
             ascending: true,
           }),

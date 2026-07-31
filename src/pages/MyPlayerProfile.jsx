@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabaseClient';
 import { resolvePlayerPhotoUrl } from '../utils/playerPhotoUrl';
 import { getEffectivePaymentStatus } from '../utils/paymentPeriod';
 import { getPlayerCompleteness } from '../utils/playerCompleteness';
+import { PAYMENT_HISTORY_SELECT, PLAYER_DETAIL_SELECT } from '../utils/supabaseSelects';
 import {
   removePlayerPhotoSet,
   uploadPlayerPhoto,
@@ -113,7 +114,7 @@ function MyPlayerProfile() {
 
       const { data, error } = await supabase
         .from('players')
-        .select('*')
+        .select(PLAYER_DETAIL_SELECT)
         .eq('user_id', user.id)
         .maybeSingle();
 
@@ -136,7 +137,7 @@ function MyPlayerProfile() {
             .eq('player_id', data.id),
           supabase
             .from('player_payments')
-            .select('*')
+            .select(PAYMENT_HISTORY_SELECT)
             .eq('player_id', data.id)
             .order('payment_date', { ascending: false })
             .limit(10),
@@ -149,7 +150,7 @@ function MyPlayerProfile() {
 
       const { data: legacyData, error: legacyError } = await supabase
         .from('players')
-        .select('*')
+        .select(PLAYER_DETAIL_SELECT)
         .eq('profile_id', user.id)
         .maybeSingle();
 
@@ -178,7 +179,7 @@ function MyPlayerProfile() {
           .eq('player_id', legacyData.id),
         supabase
           .from('player_payments')
-          .select('*')
+          .select(PAYMENT_HISTORY_SELECT)
           .eq('player_id', legacyData.id)
           .order('payment_date', { ascending: false })
           .limit(10),
