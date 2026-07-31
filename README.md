@@ -82,15 +82,16 @@ supabase functions deploy mercadopago-webhook
 supabase secrets set MERCADOPAGO_ACCESS_TOKEN=APP_USR-...
 supabase secrets set APP_BASE_URL=https://tu-app.com
 supabase secrets set MERCADOPAGO_WEBHOOK_URL=https://<project-ref>.functions.supabase.co/mercadopago-webhook
-```
-
-4. En el frontend, definir variable de entorno:
-
-```bash
-VITE_MONTHLY_FEE_ARS=15000
+supabase secrets set MERCADOPAGO_WEBHOOK_SECRET=tu_firma_secreta_de_webhooks
+supabase secrets set MERCADOPAGO_CHECKOUT_MODE=production
 ```
 
 Notas:
 
 - La confirmacion real del pago se hace por webhook (no por redireccion del navegador).
+- El monto de cuota se calcula en servidor segun categoria:
+  - `Primera`: ARS 65000
+  - `Desarrollo`: ARS 85000
 - `MERCADOPAGO_WEBHOOK_URL` es opcional, pero recomendado para tener confirmacion automatica.
+- `MERCADOPAGO_WEBHOOK_SECRET` es obligatorio para validar que el webhook venga de Mercado Pago.
+- Para salir a produccion, `MERCADOPAGO_ACCESS_TOKEN` debe ser productivo y `MERCADOPAGO_CHECKOUT_MODE` debe quedar en `production`.

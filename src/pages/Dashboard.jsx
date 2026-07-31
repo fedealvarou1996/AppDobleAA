@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/useAuth';
 import { supabase } from '../lib/supabaseClient';
@@ -15,6 +15,34 @@ function formatDate(value) {
   if (Number.isNaN(date.getTime())) return '-';
 
   return date.toLocaleDateString('es-AR');
+}
+
+function formatDateTime(value) {
+  if (!value) return '-';
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) return '-';
+
+  return date.toLocaleString('es-AR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+function formatCurrency(value) {
+  const amount = Number(value);
+
+  if (Number.isNaN(amount)) return '$ 0';
+
+  return amount.toLocaleString('es-AR', {
+    style: 'currency',
+    currency: 'ARS',
+    maximumFractionDigits: 0,
+  });
 }
 
 function addOneMonth(dateValue) {
@@ -38,6 +66,58 @@ function Dashboard() {
   const [playerTeams, setPlayerTeams] = useState([]);
   const [summaryLoading, setSummaryLoading] = useState(true);
   const [summaryError, setSummaryError] = useState('');
+  const [paymentNotifications, setPaymentNotifications] = useState([]);
+  const [paymentNotificationsLoading, setPaymentNotificationsLoading] = useState(true);
+  const [paymentNotificationsError, setPaymentNotificationsError] = useState('');
+  const [livePaymentNotice, setLivePaymentNotice] = useState('');
+
+  const loadPaymentNotifications = useCallback(async ({ silent = false } = {}) => {
+    if (!silent) {
+      setPaymentNotificationsLoading(true);
+    }
+    setPaymentNotificationsError('');
+
+    const { data: paymentsData, error: paymentsError } = await supabase
+      .from('player_payments')
+      .select('id, player_id, amount, payment_date, method, period, status, created_at')
+      .eq('status', 'paid')
+      .order('created_at', { ascending: false })
+      .limit(8);
+
+    if (paymentsError) {
+      console.error('Error cargando notificaciones de pagos:', paymentsError);
+      setPaymentNotificationsError('No se pudieron cargar las notificaciones de pagos.');
+      setPaymentNotificationsLoading(false);
+      return;
+    }
+
+    const playerIds = [...new Set((paymentsData || []).map((payment) => payment.player_id).filter(Boolean))];
+    let playersById = {};
+
+    if (playerIds.length > 0) {
+      const { data: paymentPlayersData, error: paymentPlayersError } = await supabase
+        .from('players')
+        .select('id, first_name, last_name, category')
+        .in('id', playerIds);
+
+      if (paymentPlayersError) {
+        console.error('Error cargando jugadores de pagos:', paymentPlayersError);
+      } else {
+        playersById = (paymentPlayersData || []).reduce((acc, player) => {
+          acc[player.id] = player;
+          return acc;
+        }, {});
+      }
+    }
+
+    setPaymentNotifications(
+      (paymentsData || []).map((payment) => ({
+        ...payment,
+        player: playersById[payment.player_id] || null,
+      }))
+    );
+    setPaymentNotificationsLoading(false);
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -83,6 +163,35 @@ function Dashboard() {
       isMounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadInitialPaymentNotifications() {
+      await loadPaymentNotifications();
+    }
+
+    loadInitialPaymentNotifications();
+
+    const channel = supabase
+      .channel('admin-payment-notifications')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'player_payments' },
+        async () => {
+          if (!isMounted) return;
+
+          await loadPaymentNotifications({ silent: true });
+          setLivePaymentNotice('Nuevo pago registrado. El listado ya fue actualizado.');
+        }
+      )
+      .subscribe();
+
+    return () => {
+      isMounted = false;
+      supabase.removeChannel(channel);
+    };
+  }, [loadPaymentNotifications]);
 
   const summary = useMemo(() => {
     const activePlayers = players.filter((player) => player.is_active !== false);
@@ -245,6 +354,64 @@ function Dashboard() {
                     ))
                   )}
                 </div>
+              </article>
+
+              <article className="info-card payment-notifications-card">
+                <div className="payment-notifications-heading">
+                  <div>
+                    <p className="eyebrow">Notificaciones</p>
+                    <h2>Pagos recientes</h2>
+                  </div>
+                  <span className="payment-notifications-count">
+                    {paymentNotifications.length}
+                  </span>
+                </div>
+
+                {livePaymentNotice && (
+                  <div className="alert alert-success payment-live-notice">
+                    {livePaymentNotice}
+                  </div>
+                )}
+
+                {paymentNotificationsError && (
+                  <div className="alert alert-error">{paymentNotificationsError}</div>
+                )}
+
+                {paymentNotificationsLoading ? (
+                  <p className="muted">Cargando pagos recientes...</p>
+                ) : paymentNotifications.length === 0 ? (
+                  <p className="muted">Todavia no hay pagos registrados.</p>
+                ) : (
+                  <div className="payment-notifications-list">
+                    {paymentNotifications.map((payment) => {
+                      const playerName = payment.player
+                        ? `${payment.player.first_name || ''} ${payment.player.last_name || ''}`.trim()
+                        : 'Jugador no encontrado';
+
+                      return (
+                        <button
+                          key={payment.id}
+                          type="button"
+                          className="payment-notification-row"
+                          onClick={() => navigate(`/players/${payment.player_id}`)}
+                        >
+                          <span className="payment-notification-dot" aria-hidden="true" />
+                          <span className="payment-notification-main">
+                            <strong>{playerName || 'Jugador sin nombre'}</strong>
+                            <small>
+                              {payment.period || formatDate(payment.payment_date)}
+                              {payment.player?.category ? ` · ${payment.player.category}` : ''}
+                            </small>
+                          </span>
+                          <span className="payment-notification-side">
+                            <strong>{formatCurrency(payment.amount)}</strong>
+                            <small>{formatDateTime(payment.created_at)}</small>
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </article>
             </div>
           </>

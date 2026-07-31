@@ -1,4 +1,8 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
+import {
+  InvalidWebhookSignatureError,
+  WebhookSignatureValidator,
+} from 'npm:mercadopago';
 
 function jsonResponse(body: Record<string, unknown>, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -24,8 +28,9 @@ Deno.serve(async (req) => {
   const supabaseUrl = Deno.env.get('SUPABASE_URL');
   const supabaseServiceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
   const mercadoPagoAccessToken = Deno.env.get('MERCADOPAGO_ACCESS_TOKEN');
+  const webhookSecret = Deno.env.get('MERCADOPAGO_WEBHOOK_SECRET');
 
-  if (!supabaseUrl || !supabaseServiceRoleKey || !mercadoPagoAccessToken) {
+  if (!supabaseUrl || !supabaseServiceRoleKey || !mercadoPagoAccessToken || !webhookSecret) {
     return jsonResponse({ error: 'Faltan variables de entorno.' }, 500);
   }
 
@@ -45,6 +50,21 @@ Deno.serve(async (req) => {
 
   const eventType = queryType || bodyType;
   const paymentId = queryDataId || bodyDataId;
+
+  try {
+    WebhookSignatureValidator.validate({
+      xSignature: req.headers.get('x-signature') || '',
+      xRequestId: req.headers.get('x-request-id') || '',
+      dataId: paymentId || '',
+      secret: webhookSecret,
+    });
+  } catch (error) {
+    if (error instanceof InvalidWebhookSignatureError) {
+      return jsonResponse({ error: 'Firma de webhook invalida.' }, 401);
+    }
+
+    return jsonResponse({ error: 'No se pudo validar la firma del webhook.' }, 401);
+  }
 
   if (!eventType || !String(eventType).includes('payment')) {
     await adminClient.from('mercadopago_events').insert({
@@ -77,7 +97,19 @@ Deno.serve(async (req) => {
   const payment = await paymentResponse.json().catch(() => null);
 
   if (!paymentResponse.ok || !payment) {
-    return jsonResponse({ error: 'No se pudo consultar el pago en Mercado Pago.' }, 502);
+    await adminClient.from('mercadopago_events').insert({
+      event_type: String(eventType),
+      action: String(bodyAction || 'payment_lookup_failed'),
+      mp_payment_id: String(paymentId),
+      status: 'lookup_failed',
+      status_detail: `Mercado Pago respondio ${paymentResponse.status}`,
+      raw_payload: {
+        notification: body,
+        payment_lookup_response: payment,
+      },
+    });
+
+    return jsonResponse({ ok: true, ignored: true }, 200);
   }
 
   const externalReference = payment.external_reference

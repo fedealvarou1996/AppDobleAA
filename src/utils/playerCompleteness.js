@@ -2,8 +2,9 @@ function hasValue(value) {
   return Boolean(String(value || '').trim());
 }
 
-export function getPlayerCompleteness(player, teamNames = []) {
+export function getPlayerCompleteness(player, teamNames = [], options = {}) {
   const missingFields = [];
+  const { requireTeam = true } = options;
 
   if (!hasValue(player?.photo_url) && !hasValue(player?.photo_thumb_url)) {
     missingFields.push('foto');
@@ -33,7 +34,7 @@ export function getPlayerCompleteness(player, teamNames = []) {
     missingFields.push('direccion');
   }
 
-  if (!teamNames.length) {
+  if (requireTeam && !teamNames.length) {
     missingFields.push('equipo');
   }
 

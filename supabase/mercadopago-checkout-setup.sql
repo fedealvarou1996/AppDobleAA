@@ -33,3 +33,23 @@ create index if not exists idx_mercadopago_events_mp_payment_id
 
 create index if not exists idx_mercadopago_events_created_at
   on public.mercadopago_events(created_at desc);
+
+alter table public.mercadopago_events enable row level security;
+
+revoke all on public.mercadopago_events from anon;
+revoke all on public.mercadopago_events from authenticated;
+grant select on public.mercadopago_events to authenticated;
+
+drop policy if exists "mercadopago_events_select_admin_only" on public.mercadopago_events;
+create policy "mercadopago_events_select_admin_only"
+on public.mercadopago_events
+for select
+to authenticated
+using (
+  exists (
+    select 1
+    from public.profiles
+    where profiles.id = auth.uid()
+      and profiles.role = 'admin'
+  )
+);

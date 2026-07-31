@@ -43,21 +43,75 @@ function formatMemberId(player) {
   return `AA-${compact.slice(0, 4)}-${compact.slice(4, 8)}`;
 }
 
+function getInitialPaymentNotice() {
+  const paymentResult = new URLSearchParams(window.location.search).get('payment');
+
+  if (paymentResult === 'success') {
+    return {
+      type: 'success',
+      message:
+        'Pago iniciado correctamente. Mercado Pago puede demorar unos segundos en confirmar la cuota.',
+    };
+  }
+
+  if (paymentResult === 'pending') {
+    return {
+      type: 'success',
+      message: 'El pago quedo pendiente. Te avisaremos cuando Mercado Pago lo confirme.',
+    };
+  }
+
+  if (paymentResult === 'failure') {
+    return {
+      type: 'error',
+      message: 'El pago no se completo. Podes intentarlo nuevamente.',
+    };
+  }
+
+  return { type: '', message: '' };
+}
+
+async function getFunctionErrorMessage(error, fallbackMessage) {
+  if (error?.context && typeof error.context.json === 'function') {
+    try {
+      const payload = await error.context.json();
+
+      if (payload?.error) {
+        return payload.error;
+      }
+
+      if (payload?.message) {
+        return payload.message;
+      }
+    } catch {
+      // Ignore parse failures and fallback to generic message.
+    }
+  }
+
+  return error?.message || fallbackMessage;
+}
+
 function MyPlayerProfile() {
   const navigate = useNavigate();
   const { user, profile, isPlayer, signOut } = useAuth();
+  const [initialPaymentNotice] = useState(getInitialPaymentNotice);
 
   const [player, setPlayer] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [errorMessage, setErrorMessage] = useState('');
+  const [errorMessage, setErrorMessage] = useState(() =>
+    initialPaymentNotice.type === 'error' ? initialPaymentNotice.message : ''
+  );
   const [notFound, setNotFound] = useState(false);
   const [renderPhotoUrl, setRenderPhotoUrl] = useState('');
   const [playerTeams, setPlayerTeams] = useState([]);
   const [payments, setPayments] = useState([]);
-  const [successMessage, setSuccessMessage] = useState('');
+  const [successMessage, setSuccessMessage] = useState(() =>
+    initialPaymentNotice.type === 'success' ? initialPaymentNotice.message : ''
+  );
   const [photoUploading, setPhotoUploading] = useState(false);
   const [jerseyNumberInput, setJerseyNumberInput] = useState('');
   const [jerseySaving, setJerseySaving] = useState(false);
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
 
   useEffect(() => {
     async function loadPlayerProfile() {
@@ -67,8 +121,12 @@ function MyPlayerProfile() {
       }
 
       setLoading(true);
-      setErrorMessage('');
-      setSuccessMessage('');
+      setErrorMessage((currentMessage) =>
+        initialPaymentNotice.type === 'error' ? currentMessage : ''
+      );
+      setSuccessMessage((currentMessage) =>
+        initialPaymentNotice.type === 'success' ? currentMessage : ''
+      );
       setNotFound(false);
       setRenderPhotoUrl('');
       setPlayerTeams([]);
@@ -152,7 +210,13 @@ function MyPlayerProfile() {
     }
 
     loadPlayerProfile();
-  }, [user?.id]);
+  }, [user?.id, initialPaymentNotice.type]);
+
+  useEffect(() => {
+    if (initialPaymentNotice.message) {
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, [initialPaymentNotice.message]);
 
   async function handleSignOut() {
     try {
@@ -270,6 +334,34 @@ function MyPlayerProfile() {
     setJerseySaving(false);
   }
 
+  async function handleMercadoPagoCheckout() {
+    if (!player?.id) return;
+
+    setCheckoutLoading(true);
+    setErrorMessage('');
+    setSuccessMessage('');
+
+    const { data, error } = await supabase.functions.invoke('create-mercadopago-checkout', {
+      body: {},
+    });
+
+    if (error) {
+      console.error('Error creando checkout de Mercado Pago:', error);
+      const message = await getFunctionErrorMessage(error, 'No se pudo iniciar el pago.');
+      setErrorMessage(message);
+      setCheckoutLoading(false);
+      return;
+    }
+
+    if (!data?.checkoutUrl) {
+      setErrorMessage('Mercado Pago no devolvio el link de pago.');
+      setCheckoutLoading(false);
+      return;
+    }
+
+    window.location.href = data.checkoutUrl;
+  }
+
   if (loading) {
     return (
       <div className="page-center">
@@ -294,7 +386,8 @@ function MyPlayerProfile() {
       .join(', ') || '-';
   const completeness = getPlayerCompleteness(
     player,
-    playerTeams.map((playerTeam) => playerTeam.teams?.name).filter(Boolean)
+    playerTeams.map((playerTeam) => playerTeam.teams?.name).filter(Boolean),
+    { requireTeam: false }
   );
   const verificationUrl = player?.id ? `${window.location.origin}/verify/${player.id}` : '';
   const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=170x170&data=${encodeURIComponent(verificationUrl)}`;
@@ -512,6 +605,28 @@ function MyPlayerProfile() {
             <div className="detail-item detail-notes">
               <span className="detail-label">Notas</span>
               <span className="detail-value">{formatText(player.notes)}</span>
+            </div>
+          </section>
+
+          <section className="detail-card member-detail-card">
+            <h2>Pagar cuota</h2>
+            <p className="checkout-helper-text">
+              Te vamos a redirigir a Mercado Pago. La cuota se marca al dia cuando Mercado Pago
+              confirma el pago.
+            </p>
+            <div className="checkout-actions">
+              <button
+                type="button"
+                className="primary-button"
+                onClick={handleMercadoPagoCheckout}
+                disabled={checkoutLoading || effectivePaymentStatus}
+              >
+                {checkoutLoading
+                  ? 'Preparando pago...'
+                  : effectivePaymentStatus
+                    ? 'Cuota al dia'
+                    : 'Pagar cuota con Mercado Pago'}
+              </button>
             </div>
           </section>
 

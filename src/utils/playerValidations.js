@@ -1,11 +1,6 @@
 export const PLAYER_CATEGORIES = [
   'Primera',
-  'Sub 23',
-  'Sub 20',
-  'Sub 18',
-  'Sub 16',
-  'Sub 14',
-  'Master',
+  'Desarrollo',
 ];
 
 export function normalizeText(value) {

@@ -22,6 +22,31 @@ function getCurrentPeriod() {
   return `${now.getFullYear()}-${month}`;
 }
 
+function isCurrentPeriod(dateValue: string | null | undefined) {
+  if (!dateValue) return false;
+
+  const date = new Date(`${dateValue}T00:00:00`);
+  const now = new Date();
+
+  if (Number.isNaN(date.getTime())) return false;
+
+  return date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth();
+}
+
+function getMonthlyFeeByCategory(category: string | null | undefined) {
+  const normalizedCategory = String(category || '').trim().toLowerCase();
+
+  if (normalizedCategory === 'primera') {
+    return 65000;
+  }
+
+  if (normalizedCategory === 'desarrollo') {
+    return 85000;
+  }
+
+  return null;
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -35,6 +60,7 @@ Deno.serve(async (req) => {
   const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY');
   const supabaseServiceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
   const mercadoPagoAccessToken = Deno.env.get('MERCADOPAGO_ACCESS_TOKEN');
+  const checkoutMode = Deno.env.get('MERCADOPAGO_CHECKOUT_MODE') || 'production';
   const authHeader = req.headers.get('Authorization');
 
   if (!supabaseUrl || !supabaseAnonKey || !supabaseServiceRoleKey) {
@@ -83,12 +109,7 @@ Deno.serve(async (req) => {
   }
 
   const body = await req.json().catch(() => ({}));
-  const amount = Number(body?.amount);
   const period = typeof body?.period === 'string' && body.period ? body.period : getCurrentPeriod();
-
-  if (!Number.isFinite(amount) || amount <= 0) {
-    return jsonResponse({ error: 'El monto debe ser mayor a 0.' }, 400);
-  }
 
   const title = typeof body?.title === 'string' && body.title.trim()
     ? body.title.trim()
@@ -96,7 +117,7 @@ Deno.serve(async (req) => {
 
   const { data: player, error: playerError } = await adminClient
     .from('players')
-    .select('id, first_name, last_name, email')
+    .select('id, first_name, last_name, email, category, payment_status, last_payment_date')
     .eq('user_id', callerUser.id)
     .maybeSingle();
 
@@ -108,8 +129,21 @@ Deno.serve(async (req) => {
     return jsonResponse({ error: 'No tenes una ficha de jugador vinculada.' }, 404);
   }
 
-  const requestOrigin = req.headers.get('origin') || Deno.env.get('APP_BASE_URL') || '';
-  if (!requestOrigin) {
+  if (player.payment_status && isCurrentPeriod(player.last_payment_date)) {
+    return jsonResponse({ error: 'Tu cuota ya figura al dia para el periodo actual.' }, 409);
+  }
+
+  const monthlyFee = getMonthlyFeeByCategory(player.category);
+
+  if (!monthlyFee) {
+    return jsonResponse(
+      { error: 'Tu categoria no tiene un monto de cuota configurado. Contacta al administrador.' },
+      400
+    );
+  }
+
+  const appBaseUrl = Deno.env.get('APP_BASE_URL') || req.headers.get('origin') || '';
+  if (!appBaseUrl) {
     return jsonResponse({ error: 'No se pudo resolver el dominio de retorno.' }, 500);
   }
 
@@ -123,7 +157,7 @@ Deno.serve(async (req) => {
         title,
         quantity: 1,
         currency_id: 'ARS',
-        unit_price: Number(amount.toFixed(2)),
+        unit_price: Number(monthlyFee.toFixed(2)),
       },
     ],
     payer: {
@@ -138,9 +172,9 @@ Deno.serve(async (req) => {
       created_by_user_id: callerUser.id,
     },
     back_urls: {
-      success: `${requestOrigin}/my-profile?payment=success`,
-      failure: `${requestOrigin}/my-profile?payment=failure`,
-      pending: `${requestOrigin}/my-profile?payment=pending`,
+      success: `${appBaseUrl}/my-profile?payment=success`,
+      failure: `${appBaseUrl}/my-profile?payment=failure`,
+      pending: `${appBaseUrl}/my-profile?payment=pending`,
     },
     auto_return: 'approved',
   };
@@ -171,7 +205,10 @@ Deno.serve(async (req) => {
   }
 
   const preferenceId = responsePayload?.id;
-  const checkoutUrl = responsePayload?.init_point || responsePayload?.sandbox_init_point;
+  const checkoutUrl =
+    checkoutMode === 'sandbox'
+      ? responsePayload?.sandbox_init_point || responsePayload?.init_point
+      : responsePayload?.init_point || responsePayload?.sandbox_init_point;
 
   if (!preferenceId || !checkoutUrl) {
     return jsonResponse({ error: 'Mercado Pago no devolvio los datos esperados.' }, 502);
@@ -183,7 +220,7 @@ Deno.serve(async (req) => {
     external_reference: externalReference,
     mp_preference_id: String(preferenceId),
     status: 'pending',
-    amount: Number(amount.toFixed(2)),
+    amount: Number(monthlyFee.toFixed(2)),
     player_id: player.id,
     raw_payload: responsePayload,
   });
@@ -192,5 +229,9 @@ Deno.serve(async (req) => {
     checkoutUrl,
     preferenceId,
     externalReference,
+    amount: Number(monthlyFee.toFixed(2)),
+    period,
+    category: player.category,
+    checkoutMode,
   });
 });
