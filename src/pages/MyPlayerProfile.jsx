@@ -7,6 +7,12 @@ import { getEffectivePaymentStatus } from '../utils/paymentPeriod';
 import { getPlayerCompleteness } from '../utils/playerCompleteness';
 import { PAYMENT_HISTORY_SELECT, PLAYER_DETAIL_SELECT } from '../utils/supabaseSelects';
 import {
+  openPaymentReceipt,
+  removePaymentReceipt,
+  uploadPaymentReceipt,
+  validatePaymentReceipt,
+} from '../utils/paymentReceiptUpload';
+import {
   removePlayerPhotoSet,
   uploadPlayerPhoto,
   validatePlayerPhoto,
@@ -72,25 +78,27 @@ function getInitialPaymentNotice() {
   return { type: '', message: '' };
 }
 
-async function getFunctionErrorMessage(error, fallbackMessage) {
-  if (error?.context && typeof error.context.json === 'function') {
-    try {
-      const payload = await error.context.json();
-
-      if (payload?.error) {
-        return payload.error;
-      }
-
-      if (payload?.message) {
-        return payload.message;
-      }
-    } catch {
-      // Ignore parse failures and fallback to generic message.
-    }
-  }
-
-  return error?.message || fallbackMessage;
+function getCurrentPeriod() {
+  return new Date().toISOString().slice(0, 7);
 }
+
+function getMonthlyFee(category) {
+  if (category === 'Primera') return 65000;
+  if (category === 'Desarrollo') return 85000;
+  return 0;
+}
+
+function getPaymentStatusLabel(status) {
+  if (status === 'paid') return 'Aprobado';
+  if (status === 'reported') return 'Pendiente de validacion';
+  if (status === 'rejected') return 'Rechazado';
+  return formatText(status);
+}
+
+const NARANJA_PAYMENT_ALIAS =
+  import.meta.env.VITE_NARANJA_PAYMENT_ALIAS || 'Alias pendiente de configurar';
+const NARANJA_PAYMENT_CBU = import.meta.env.VITE_NARANJA_PAYMENT_CBU || '';
+const NARANJA_PAYMENT_HOLDER = import.meta.env.VITE_NARANJA_PAYMENT_HOLDER || '';
 
 function MyPlayerProfile() {
   const navigate = useNavigate();
@@ -112,7 +120,8 @@ function MyPlayerProfile() {
   const [photoUploading, setPhotoUploading] = useState(false);
   const [jerseyNumberInput, setJerseyNumberInput] = useState('');
   const [jerseySaving, setJerseySaving] = useState(false);
-  const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const [receiptFile, setReceiptFile] = useState(null);
+  const [paymentReportSaving, setPaymentReportSaving] = useState(false);
 
   useEffect(() => {
     async function loadPlayerProfile() {
@@ -335,32 +344,82 @@ function MyPlayerProfile() {
     setJerseySaving(false);
   }
 
-  async function handleMercadoPagoCheckout() {
+  function handleReceiptFileChange(event) {
+    setReceiptFile(event.target.files?.[0] || null);
+  }
+
+  async function handlePaymentReportSubmit(event) {
+    event.preventDefault();
+
     if (!player?.id) return;
 
-    setCheckoutLoading(true);
+    const amount = getMonthlyFee(player.category);
+    if (!amount) {
+      setErrorMessage('Tu categoria no tiene un monto de cuota configurado.');
+      setSuccessMessage('');
+      return;
+    }
+
+    const receiptValidationMessage = validatePaymentReceipt(receiptFile);
+    if (receiptValidationMessage) {
+      setErrorMessage(receiptValidationMessage);
+      setSuccessMessage('');
+      return;
+    }
+
+    setPaymentReportSaving(true);
     setErrorMessage('');
     setSuccessMessage('');
 
-    const { data, error } = await supabase.functions.invoke('create-mercadopago-checkout', {
-      body: {},
-    });
+    let receipt = null;
 
-    if (error) {
-      console.error('Error creando checkout de Mercado Pago:', error);
-      const message = await getFunctionErrorMessage(error, 'No se pudo iniciar el pago.');
-      setErrorMessage(message);
-      setCheckoutLoading(false);
-      return;
+    try {
+      receipt = await uploadPaymentReceipt(receiptFile, player.id);
+      const period = getCurrentPeriod();
+
+      const { data, error } = await supabase
+        .from('player_payments')
+        .insert({
+          player_id: player.id,
+          amount,
+          payment_date: new Date().toISOString().slice(0, 10),
+          method: 'Naranja X',
+          period,
+          status: 'reported',
+          notes: 'Pago informado por el jugador. Pendiente de validacion admin.',
+          receipt_path: receipt.path,
+          receipt_file_name: receipt.fileName,
+        })
+        .select(PAYMENT_HISTORY_SELECT)
+        .single();
+
+      if (error) {
+        throw error;
+      }
+
+      setPayments((currentPayments) => [data, ...currentPayments]);
+      setReceiptFile(null);
+      event.target.reset();
+      setSuccessMessage('Pago informado correctamente. Queda pendiente de validacion.');
+    } catch (paymentReportError) {
+      console.error('Error informando pago:', paymentReportError);
+      if (receipt?.path) {
+        await removePaymentReceipt(receipt.path);
+      }
+      setErrorMessage(paymentReportError.message || 'No se pudo informar el pago.');
+    } finally {
+      setPaymentReportSaving(false);
     }
+  }
 
-    if (!data?.checkoutUrl) {
-      setErrorMessage('Mercado Pago no devolvio el link de pago.');
-      setCheckoutLoading(false);
-      return;
+  async function handleOpenReceipt(receiptPath) {
+    try {
+      await openPaymentReceipt(receiptPath);
+    } catch (receiptError) {
+      console.error('Error abriendo comprobante:', receiptError);
+      setErrorMessage(receiptError.message || 'No se pudo abrir el comprobante.');
+      setSuccessMessage('');
     }
-
-    window.location.href = data.checkoutUrl;
   }
 
   if (loading) {
@@ -377,6 +436,11 @@ function MyPlayerProfile() {
     `${player?.first_name || ''} ${player?.last_name || ''}`.trim() || '-';
   const effectivePaymentStatus = getEffectivePaymentStatus(player);
   const paymentLabel = effectivePaymentStatus ? 'Al dia' : 'Pendiente';
+  const monthlyFee = getMonthlyFee(player?.category);
+  const currentPeriod = getCurrentPeriod();
+  const hasReportedCurrentPayment = payments.some(
+    (payment) => payment.status === 'reported' && payment.period === currentPeriod
+  );
   const memberId = formatMemberId(player);
   const issueDate = formatDate(player?.created_at);
   const dueDate = formatDate(player?.last_payment_date);
@@ -610,25 +674,64 @@ function MyPlayerProfile() {
           </section>
 
           <section className="detail-card member-detail-card">
-            <h2>Pagar cuota</h2>
+            <h2>Informar pago</h2>
             <p className="checkout-helper-text">
-              Te vamos a redirigir a Mercado Pago. La cuota se marca al dia cuando Mercado Pago
-              confirma el pago.
+              Transferi desde tu banco o billetera a Naranja X y subi el comprobante. El admin
+              valida el pago y ahi tu cuota queda al dia.
             </p>
-            <div className="checkout-actions">
+
+            <div className="payment-instructions-card">
+              <div>
+                <span className="detail-label">Monto del periodo {currentPeriod}</span>
+                <strong>{monthlyFee ? formatCurrency(monthlyFee) : 'Sin monto configurado'}</strong>
+              </div>
+              <div>
+                <span className="detail-label">Alias</span>
+                <strong>{NARANJA_PAYMENT_ALIAS}</strong>
+              </div>
+              {NARANJA_PAYMENT_CBU && (
+                <div>
+                  <span className="detail-label">CBU/CVU</span>
+                  <strong>{NARANJA_PAYMENT_CBU}</strong>
+                </div>
+              )}
+              {NARANJA_PAYMENT_HOLDER && (
+                <div>
+                  <span className="detail-label">Titular</span>
+                  <strong>{NARANJA_PAYMENT_HOLDER}</strong>
+                </div>
+              )}
+            </div>
+
+            <form className="payment-report-form" onSubmit={handlePaymentReportSubmit}>
+              <div className="form-field">
+                <label>Comprobante</label>
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,application/pdf"
+                  onChange={handleReceiptFileChange}
+                  disabled={paymentReportSaving || effectivePaymentStatus || hasReportedCurrentPayment}
+                />
+              </div>
               <button
-                type="button"
+                type="submit"
                 className="primary-button"
-                onClick={handleMercadoPagoCheckout}
-                disabled={checkoutLoading || effectivePaymentStatus}
+                disabled={
+                  paymentReportSaving ||
+                  effectivePaymentStatus ||
+                  hasReportedCurrentPayment ||
+                  !monthlyFee
+                }
               >
-                {checkoutLoading
-                  ? 'Preparando pago...'
+                {paymentReportSaving
+                  ? 'Enviando comprobante...'
                   : effectivePaymentStatus
                     ? 'Cuota al dia'
-                    : 'Pagar cuota con Mercado Pago'}
+                    : hasReportedCurrentPayment
+                      ? 'Pago pendiente de validacion'
+                      : 'Informar pago'}
               </button>
-            </div>
+            </form>
           </section>
 
           <section className="detail-card member-detail-card">
@@ -646,6 +749,8 @@ function MyPlayerProfile() {
                       <th>Monto</th>
                       <th>Metodo</th>
                       <th>Periodo</th>
+                      <th>Estado</th>
+                      <th>Comprobante</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -655,6 +760,20 @@ function MyPlayerProfile() {
                         <td>{formatCurrency(payment.amount)}</td>
                         <td>{formatText(payment.method)}</td>
                         <td>{formatText(payment.period)}</td>
+                        <td>{getPaymentStatusLabel(payment.status)}</td>
+                        <td>
+                          {payment.receipt_path ? (
+                            <button
+                              type="button"
+                              className="secondary-button small-button"
+                              onClick={() => handleOpenReceipt(payment.receipt_path)}
+                            >
+                              Ver
+                            </button>
+                          ) : (
+                            '-'
+                          )}
+                        </td>
                       </tr>
                     ))}
                   </tbody>

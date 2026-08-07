@@ -20,6 +20,22 @@ function formatDate(value) {
   return date.toLocaleDateString('es-AR');
 }
 
+function formatDateTime(value) {
+  if (!value) return '-';
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) return '-';
+
+  return date.toLocaleString('es-AR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
 function formatText(value) {
   return value ? value : '-';
 }
@@ -370,14 +386,15 @@ function PlayerDetail() {
     setErrorMessage('');
     setSuccessMessage('');
 
-    const paymentDate = payment.payment_date || new Date().toISOString().slice(0, 10);
+    const reviewedAt = new Date().toISOString();
+    const paymentDate = payment.payment_date || reviewedAt.slice(0, 10);
     const { data: updatedPayment, error: paymentUpdateError } = await supabase
       .from('player_payments')
       .update({
         status: 'paid',
-        reviewed_at: new Date().toISOString(),
-        notes: payment.notes || 'Pago validado por admin.',
-        updated_at: new Date().toISOString(),
+        reviewed_at: reviewedAt,
+        notes: `Pago aprobado por admin el ${formatDateTime(reviewedAt)}.`,
+        updated_at: reviewedAt,
       })
       .eq('id', payment.id)
       .eq('player_id', player.id)

@@ -45,20 +45,6 @@ function formatCurrency(value) {
   });
 }
 
-function getPaymentNotificationStatus(payment) {
-  if (payment.status === 'reported') {
-    return {
-      label: 'Pendiente de validacion',
-      className: 'badge-warning',
-    };
-  }
-
-  return {
-    label: 'Aprobado',
-    className: 'badge-success',
-  };
-}
-
 function addOneMonth(dateValue) {
   if (!dateValue) return null;
 
@@ -94,7 +80,7 @@ function Dashboard() {
     const { data: paymentsData, error: paymentsError } = await supabase
       .from('player_payments')
       .select('id, player_id, amount, payment_date, method, period, status, created_at')
-      .in('status', ['paid', 'reported'])
+      .eq('status', 'reported')
       .order('created_at', { ascending: false })
       .limit(8);
 
@@ -374,7 +360,7 @@ function Dashboard() {
                 <div className="payment-notifications-heading">
                   <div>
                     <p className="eyebrow">Notificaciones</p>
-                    <h2>Pagos recientes</h2>
+                    <h2>Pagos pendientes</h2>
                   </div>
                   <span className="payment-notifications-count">
                     {paymentNotifications.length}
@@ -392,16 +378,15 @@ function Dashboard() {
                 )}
 
                 {paymentNotificationsLoading ? (
-                  <p className="muted">Cargando pagos recientes...</p>
+                  <p className="muted">Cargando pagos pendientes...</p>
                 ) : paymentNotifications.length === 0 ? (
-                  <p className="muted">Todavia no hay pagos registrados.</p>
+                  <p className="muted">No hay pagos pendientes de validacion.</p>
                 ) : (
                   <div className="payment-notifications-list">
                     {paymentNotifications.map((payment) => {
                       const playerName = payment.player
                         ? `${payment.player.first_name || ''} ${payment.player.last_name || ''}`.trim()
                         : 'Jugador no encontrado';
-                      const paymentStatus = getPaymentNotificationStatus(payment);
 
                       return (
                         <button
@@ -419,8 +404,8 @@ function Dashboard() {
                             </small>
                           </span>
                           <span className="payment-notification-side">
-                            <span className={`badge ${paymentStatus.className}`}>
-                              {paymentStatus.label}
+                            <span className="badge badge-warning">
+                              Pendiente
                             </span>
                             <strong>{formatCurrency(payment.amount)}</strong>
                             <small>{formatDateTime(payment.created_at)}</small>
