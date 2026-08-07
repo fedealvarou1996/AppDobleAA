@@ -422,7 +422,7 @@ function MyPlayerProfile() {
         </div>
       )}
 
-      {!errorMessage && !notFound && player && (
+      {!notFound && player && (
         <>
           <section
             className={`profile-completeness-card ${
