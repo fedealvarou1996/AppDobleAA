@@ -72,6 +72,26 @@ function getInitialPaymentNotice() {
   return { type: '', message: '' };
 }
 
+async function getFunctionErrorMessage(error, fallbackMessage) {
+  if (error?.context && typeof error.context.json === 'function') {
+    try {
+      const payload = await error.context.json();
+
+      if (payload?.error) {
+        return payload.error;
+      }
+
+      if (payload?.message) {
+        return payload.message;
+      }
+    } catch {
+      // Ignore parse failures and fallback to generic message.
+    }
+  }
+
+  return error?.message || fallbackMessage;
+}
+
 function MyPlayerProfile() {
   const navigate = useNavigate();
   const { user, profile, isPlayer, signOut } = useAuth();
@@ -92,6 +112,7 @@ function MyPlayerProfile() {
   const [photoUploading, setPhotoUploading] = useState(false);
   const [jerseyNumberInput, setJerseyNumberInput] = useState('');
   const [jerseySaving, setJerseySaving] = useState(false);
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
 
   useEffect(() => {
     async function loadPlayerProfile() {
@@ -312,6 +333,34 @@ function MyPlayerProfile() {
     setJerseyNumberInput(updatedJerseyNumber);
     setSuccessMessage('Camiseta actualizada correctamente.');
     setJerseySaving(false);
+  }
+
+  async function handleMercadoPagoCheckout() {
+    if (!player?.id) return;
+
+    setCheckoutLoading(true);
+    setErrorMessage('');
+    setSuccessMessage('');
+
+    const { data, error } = await supabase.functions.invoke('create-mercadopago-checkout', {
+      body: {},
+    });
+
+    if (error) {
+      console.error('Error creando checkout de Mercado Pago:', error);
+      const message = await getFunctionErrorMessage(error, 'No se pudo iniciar el pago.');
+      setErrorMessage(message);
+      setCheckoutLoading(false);
+      return;
+    }
+
+    if (!data?.checkoutUrl) {
+      setErrorMessage('Mercado Pago no devolvio el link de pago.');
+      setCheckoutLoading(false);
+      return;
+    }
+
+    window.location.href = data.checkoutUrl;
   }
 
   if (loading) {
@@ -557,6 +606,28 @@ function MyPlayerProfile() {
             <div className="detail-item detail-notes">
               <span className="detail-label">Notas</span>
               <span className="detail-value">{formatText(player.notes)}</span>
+            </div>
+          </section>
+
+          <section className="detail-card member-detail-card">
+            <h2>Pagar cuota</h2>
+            <p className="checkout-helper-text">
+              Te vamos a redirigir a Mercado Pago. La cuota se marca al dia cuando Mercado Pago
+              confirma el pago.
+            </p>
+            <div className="checkout-actions">
+              <button
+                type="button"
+                className="primary-button"
+                onClick={handleMercadoPagoCheckout}
+                disabled={checkoutLoading || effectivePaymentStatus}
+              >
+                {checkoutLoading
+                  ? 'Preparando pago...'
+                  : effectivePaymentStatus
+                    ? 'Cuota al dia'
+                    : 'Pagar cuota con Mercado Pago'}
+              </button>
             </div>
           </section>
 

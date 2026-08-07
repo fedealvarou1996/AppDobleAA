@@ -45,6 +45,20 @@ function formatCurrency(value) {
   });
 }
 
+function getPaymentNotificationStatus(payment) {
+  if (payment.status === 'reported') {
+    return {
+      label: 'Pendiente de validacion',
+      className: 'badge-warning',
+    };
+  }
+
+  return {
+    label: 'Aprobado',
+    className: 'badge-success',
+  };
+}
+
 function addOneMonth(dateValue) {
   if (!dateValue) return null;
 
@@ -80,7 +94,7 @@ function Dashboard() {
     const { data: paymentsData, error: paymentsError } = await supabase
       .from('player_payments')
       .select('id, player_id, amount, payment_date, method, period, status, created_at')
-      .eq('status', 'paid')
+      .in('status', ['paid', 'reported'])
       .order('created_at', { ascending: false })
       .limit(8);
 
@@ -387,6 +401,7 @@ function Dashboard() {
                       const playerName = payment.player
                         ? `${payment.player.first_name || ''} ${payment.player.last_name || ''}`.trim()
                         : 'Jugador no encontrado';
+                      const paymentStatus = getPaymentNotificationStatus(payment);
 
                       return (
                         <button
@@ -404,6 +419,9 @@ function Dashboard() {
                             </small>
                           </span>
                           <span className="payment-notification-side">
+                            <span className={`badge ${paymentStatus.className}`}>
+                              {paymentStatus.label}
+                            </span>
                             <strong>{formatCurrency(payment.amount)}</strong>
                             <small>{formatDateTime(payment.created_at)}</small>
                           </span>

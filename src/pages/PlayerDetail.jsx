@@ -5,6 +5,7 @@ import { resolvePlayerPhotoUrl } from '../utils/playerPhotoUrl';
 import { getEffectivePaymentStatus, isCurrentMonthlyPeriod } from '../utils/paymentPeriod';
 import { getPlayerCompleteness } from '../utils/playerCompleteness';
 import { PAYMENT_HISTORY_SELECT, PLAYER_DETAIL_SELECT } from '../utils/supabaseSelects';
+import { openPaymentReceipt } from '../utils/paymentReceiptUpload';
 
 function formatDate(value) {
   if (!value) return '-';
@@ -30,6 +31,20 @@ function formatCurrency(value) {
     currency: 'ARS',
     maximumFractionDigits: 2,
   }).format(Number(value));
+}
+
+function getPaymentStatusLabel(status) {
+  if (status === 'paid') return 'Aprobado';
+  if (status === 'reported') return 'Pendiente';
+  if (status === 'rejected') return 'Rechazado';
+  return formatText(status);
+}
+
+function getPaymentStatusBadgeClass(status) {
+  if (status === 'paid') return 'badge-success';
+  if (status === 'reported') return 'badge-warning';
+  if (status === 'rejected') return 'badge-danger';
+  return 'badge-warning';
 }
 
 async function getFunctionErrorMessage(error) {
@@ -67,6 +82,7 @@ function PlayerDetail() {
   const [payments, setPayments] = useState([]);
   const [paymentSaving, setPaymentSaving] = useState(false);
   const [deletingPaymentId, setDeletingPaymentId] = useState('');
+  const [reviewingPaymentId, setReviewingPaymentId] = useState('');
   const [paymentForm, setPaymentForm] = useState({
     amount: '',
     payment_date: new Date().toISOString().slice(0, 10),
@@ -297,7 +313,7 @@ function PlayerDetail() {
     const updatedPayments = payments.filter((currentPayment) => currentPayment.id !== payment.id);
     setPayments(updatedPayments);
 
-    const latestPayment = [...updatedPayments].sort((a, b) =>
+    const latestPayment = updatedPayments.filter((payment) => payment.status === 'paid').sort((a, b) =>
       String(b.payment_date || '').localeCompare(String(a.payment_date || ''))
     )[0];
 
@@ -335,6 +351,115 @@ function PlayerDetail() {
 
     setSuccessMessage('Pago eliminado correctamente.');
     setDeletingPaymentId('');
+  }
+
+  async function handleOpenReceipt(receiptPath) {
+    try {
+      await openPaymentReceipt(receiptPath);
+    } catch (receiptError) {
+      console.error('Error abriendo comprobante:', receiptError);
+      setErrorMessage(receiptError.message || 'No se pudo abrir el comprobante.');
+      setSuccessMessage('');
+    }
+  }
+
+  async function handleApprovePayment(payment) {
+    if (!player?.id || !payment?.id) return;
+
+    setReviewingPaymentId(payment.id);
+    setErrorMessage('');
+    setSuccessMessage('');
+
+    const paymentDate = payment.payment_date || new Date().toISOString().slice(0, 10);
+    const { data: updatedPayment, error: paymentUpdateError } = await supabase
+      .from('player_payments')
+      .update({
+        status: 'paid',
+        reviewed_at: new Date().toISOString(),
+        notes: payment.notes || 'Pago validado por admin.',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', payment.id)
+      .eq('player_id', player.id)
+      .select(PAYMENT_HISTORY_SELECT)
+      .single();
+
+    if (paymentUpdateError) {
+      console.error('Error aprobando pago:', paymentUpdateError);
+      setErrorMessage('No se pudo aprobar el pago.');
+      setReviewingPaymentId('');
+      return;
+    }
+
+    const { error: playerUpdateError } = await supabase
+      .from('players')
+      .update({
+        payment_status: true,
+        last_payment_date: paymentDate,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', player.id);
+
+    if (playerUpdateError) {
+      console.error('Error actualizando jugador luego de aprobar pago:', playerUpdateError);
+      setErrorMessage('Pago aprobado, pero no se pudo actualizar el estado del jugador.');
+      setReviewingPaymentId('');
+      return;
+    }
+
+    setPayments((currentPayments) =>
+      currentPayments.map((currentPayment) =>
+        currentPayment.id === payment.id ? updatedPayment : currentPayment
+      )
+    );
+    setPlayer((currentPlayer) =>
+      currentPlayer
+        ? {
+            ...currentPlayer,
+            payment_status: true,
+            last_payment_date: paymentDate,
+            updated_at: new Date().toISOString(),
+          }
+        : currentPlayer
+    );
+    setSuccessMessage('Pago aprobado correctamente.');
+    setReviewingPaymentId('');
+  }
+
+  async function handleRejectPayment(payment) {
+    if (!player?.id || !payment?.id) return;
+
+    setReviewingPaymentId(payment.id);
+    setErrorMessage('');
+    setSuccessMessage('');
+
+    const { data: updatedPayment, error } = await supabase
+      .from('player_payments')
+      .update({
+        status: 'rejected',
+        reviewed_at: new Date().toISOString(),
+        notes: payment.notes || 'Pago rechazado por admin.',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', payment.id)
+      .eq('player_id', player.id)
+      .select(PAYMENT_HISTORY_SELECT)
+      .single();
+
+    if (error) {
+      console.error('Error rechazando pago:', error);
+      setErrorMessage('No se pudo rechazar el pago.');
+      setReviewingPaymentId('');
+      return;
+    }
+
+    setPayments((currentPayments) =>
+      currentPayments.map((currentPayment) =>
+        currentPayment.id === payment.id ? updatedPayment : currentPayment
+      )
+    );
+    setSuccessMessage('Pago rechazado correctamente.');
+    setReviewingPaymentId('');
   }
 
   if (loading) {
@@ -632,6 +757,8 @@ function PlayerDetail() {
                   <th>Monto</th>
                   <th>Metodo</th>
                   <th>Periodo</th>
+                  <th>Estado</th>
+                  <th>Comprobante</th>
                   <th>Notas</th>
                   <th>Acciones</th>
                 </tr>
@@ -643,8 +770,46 @@ function PlayerDetail() {
                     <td>{formatCurrency(payment.amount)}</td>
                     <td>{formatText(payment.method)}</td>
                     <td>{formatText(payment.period)}</td>
+                    <td>
+                      <span className={`badge ${getPaymentStatusBadgeClass(payment.status)}`}>
+                        {getPaymentStatusLabel(payment.status)}
+                      </span>
+                    </td>
+                    <td>
+                      {payment.receipt_path ? (
+                        <button
+                          type="button"
+                          className="secondary-button small-button"
+                          onClick={() => handleOpenReceipt(payment.receipt_path)}
+                        >
+                          Ver
+                        </button>
+                      ) : (
+                        '-'
+                      )}
+                    </td>
                     <td>{formatText(payment.notes)}</td>
                     <td>
+                      {payment.status === 'reported' && (
+                        <>
+                          <button
+                            type="button"
+                            className="primary-button small-button"
+                            onClick={() => handleApprovePayment(payment)}
+                            disabled={reviewingPaymentId === payment.id}
+                          >
+                            {reviewingPaymentId === payment.id ? 'Procesando...' : 'Aprobar'}
+                          </button>
+                          <button
+                            type="button"
+                            className="secondary-button small-button"
+                            onClick={() => handleRejectPayment(payment)}
+                            disabled={reviewingPaymentId === payment.id}
+                          >
+                            Rechazar
+                          </button>
+                        </>
+                      )}
                       <button
                         type="button"
                         className="danger-button small-button"
