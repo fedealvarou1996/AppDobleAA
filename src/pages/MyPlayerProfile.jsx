@@ -346,15 +346,7 @@ function MyPlayerProfile() {
     setJerseySaving(false);
   }
 
-  function handleReceiptFileChange(event) {
-    const selectedFile = event.target.files?.[0] || null;
-    setReceiptFileName(selectedFile?.name || '');
-    setErrorMessage('');
-  }
-
-  async function handlePaymentReportSubmit(event) {
-    event.preventDefault();
-
+  async function reportPaymentWithReceipt(receiptFile) {
     if (!player?.id) return;
 
     const amount = getMonthlyFee(player.category);
@@ -364,7 +356,6 @@ function MyPlayerProfile() {
       return;
     }
 
-    const receiptFile = receiptInputRef.current?.files?.[0] || null;
     const receiptValidationMessage = validatePaymentReceipt(receiptFile);
     if (receiptValidationMessage) {
       setErrorMessage(receiptValidationMessage);
@@ -404,7 +395,9 @@ function MyPlayerProfile() {
 
       setPayments((currentPayments) => [data, ...currentPayments]);
       setReceiptFileName('');
-      event.target.reset();
+      if (receiptInputRef.current) {
+        receiptInputRef.current.value = '';
+      }
 
       const { error: notificationError } = await supabase.functions.invoke(
         'notify-payment-reported',
@@ -427,6 +420,18 @@ function MyPlayerProfile() {
     } finally {
       setPaymentReportSaving(false);
     }
+  }
+
+  async function handleReceiptFileChange(event) {
+    const selectedFile = event.target.files?.[0] || null;
+    setReceiptFileName(selectedFile?.name || '');
+    setErrorMessage('');
+
+    if (!selectedFile) {
+      return;
+    }
+
+    await reportPaymentWithReceipt(selectedFile);
   }
 
   async function handleOpenReceipt(receiptPath) {
@@ -720,11 +725,13 @@ function MyPlayerProfile() {
               )}
             </div>
 
-            <form className="payment-report-form" onSubmit={handlePaymentReportSubmit}>
+            <div className="payment-report-form">
               <div className="form-field">
                 <label>Comprobante</label>
                 <input
                   ref={receiptInputRef}
+                  id="payment_receipt"
+                  className="visually-hidden-file-input"
                   type="file"
                   name="payment_receipt"
                   accept="image/png,image/jpeg,image/webp,application/pdf"
@@ -737,15 +744,16 @@ function MyPlayerProfile() {
                     : 'Selecciona una imagen o PDF del comprobante.'}
                 </small>
               </div>
-              <button
-                type="submit"
-                className="primary-button"
-                disabled={
+              <label
+                htmlFor="payment_receipt"
+                className={`primary-button payment-upload-trigger ${
                   paymentReportSaving ||
                   effectivePaymentStatus ||
                   hasReportedCurrentPayment ||
                   !monthlyFee
-                }
+                    ? 'payment-upload-trigger-disabled'
+                    : ''
+                }`}
               >
                 {paymentReportSaving
                   ? 'Enviando comprobante...'
@@ -753,9 +761,9 @@ function MyPlayerProfile() {
                     ? 'Cuota al dia'
                     : hasReportedCurrentPayment
                       ? 'Pago pendiente de validacion'
-                      : 'Informar pago'}
-              </button>
-            </form>
+                      : 'Seleccionar comprobante y enviarlo'}
+              </label>
+            </div>
           </section>
 
           <section className="detail-card member-detail-card">
