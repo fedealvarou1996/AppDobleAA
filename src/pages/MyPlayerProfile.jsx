@@ -346,7 +346,7 @@ function MyPlayerProfile() {
     setJerseySaving(false);
   }
 
-  async function reportPayment({ method, receiptFile = null }) {
+  async function reportPayment({ method, receiptFile = null, requireReceipt = false }) {
     if (!player?.id) return;
 
     const amount = getMonthlyFee(player.category);
@@ -356,7 +356,7 @@ function MyPlayerProfile() {
       return;
     }
 
-    if (method === 'Naranja X') {
+    if (requireReceipt) {
       const receiptValidationMessage = validatePaymentReceipt(receiptFile);
       if (receiptValidationMessage) {
         setErrorMessage(receiptValidationMessage);
@@ -389,7 +389,9 @@ function MyPlayerProfile() {
           notes:
             method === 'Efectivo'
               ? 'Pago en efectivo informado por el jugador. Pendiente de validacion admin.'
-              : 'Pago informado por el jugador. Pendiente de validacion admin.',
+              : receipt
+                ? 'Pago informado por el jugador. Pendiente de validacion admin.'
+                : 'Pago por Naranja X informado sin comprobante. Pendiente de validacion admin.',
           receipt_path: receipt?.path || null,
           receipt_file_name: receipt?.fileName || null,
         })
@@ -438,7 +440,11 @@ function MyPlayerProfile() {
       return;
     }
 
-    await reportPayment({ method: 'Naranja X', receiptFile: selectedFile });
+    await reportPayment({ method: 'Naranja X', receiptFile: selectedFile, requireReceipt: true });
+  }
+
+  async function handleNaranjaPaymentWithoutReceipt() {
+    await reportPayment({ method: 'Naranja X' });
   }
 
   async function handleCashPaymentReport() {
@@ -759,6 +765,10 @@ function MyPlayerProfile() {
                     ? `Archivo seleccionado: ${receiptFileName}`
                     : 'Selecciona una imagen o PDF del comprobante.'}
                 </small>
+                <small className="file-selection-helper">
+                  Si tu celular vuelve a cargar la ficha al elegir archivo, usa la opcion sin
+                  comprobante.
+                </small>
               </div>
               <label
                 htmlFor="payment_receipt"
@@ -767,13 +777,27 @@ function MyPlayerProfile() {
                 }`}
               >
                 {paymentReportSaving === 'Naranja X'
-                  ? 'Enviando comprobante...'
+                  ? 'Procesando pago...'
                   : effectivePaymentStatus
                     ? 'Cuota al dia'
                     : hasReportedCurrentPayment
                       ? 'Pago pendiente de validacion'
                       : 'Seleccionar comprobante y enviarlo'}
               </label>
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={handleNaranjaPaymentWithoutReceipt}
+                disabled={paymentReportDisabled}
+              >
+                {paymentReportSaving === 'Naranja X'
+                  ? 'Avisando transferencia...'
+                  : effectivePaymentStatus
+                    ? 'Cuota al dia'
+                    : hasReportedCurrentPayment
+                      ? 'Pago pendiente de validacion'
+                      : 'Avisar transferencia sin comprobante'}
+              </button>
               <button
                 type="button"
                 className="secondary-button"
