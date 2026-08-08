@@ -123,7 +123,7 @@ function MyPlayerProfile() {
   const [jerseyNumberInput, setJerseyNumberInput] = useState('');
   const [jerseySaving, setJerseySaving] = useState(false);
   const [receiptFileName, setReceiptFileName] = useState('');
-  const [paymentReportSaving, setPaymentReportSaving] = useState(false);
+  const [paymentReportSaving, setPaymentReportSaving] = useState('');
 
   useEffect(() => {
     async function loadPlayerProfile() {
@@ -346,7 +346,7 @@ function MyPlayerProfile() {
     setJerseySaving(false);
   }
 
-  async function reportPaymentWithReceipt(receiptFile) {
+  async function reportPayment({ method, receiptFile = null }) {
     if (!player?.id) return;
 
     const amount = getMonthlyFee(player.category);
@@ -356,21 +356,25 @@ function MyPlayerProfile() {
       return;
     }
 
-    const receiptValidationMessage = validatePaymentReceipt(receiptFile);
-    if (receiptValidationMessage) {
-      setErrorMessage(receiptValidationMessage);
-      setSuccessMessage('');
-      return;
+    if (method === 'Naranja X') {
+      const receiptValidationMessage = validatePaymentReceipt(receiptFile);
+      if (receiptValidationMessage) {
+        setErrorMessage(receiptValidationMessage);
+        setSuccessMessage('');
+        return;
+      }
     }
 
-    setPaymentReportSaving(true);
+    setPaymentReportSaving(method);
     setErrorMessage('');
     setSuccessMessage('');
 
     let receipt = null;
 
     try {
-      receipt = await uploadPaymentReceipt(receiptFile, player.id);
+      if (receiptFile) {
+        receipt = await uploadPaymentReceipt(receiptFile, player.id);
+      }
       const period = getCurrentPeriod();
 
       const { data, error } = await supabase
@@ -379,12 +383,15 @@ function MyPlayerProfile() {
           player_id: player.id,
           amount,
           payment_date: new Date().toISOString().slice(0, 10),
-          method: 'Naranja X',
+          method,
           period,
           status: 'reported',
-          notes: 'Pago informado por el jugador. Pendiente de validacion admin.',
-          receipt_path: receipt.path,
-          receipt_file_name: receipt.fileName,
+          notes:
+            method === 'Efectivo'
+              ? 'Pago en efectivo informado por el jugador. Pendiente de validacion admin.'
+              : 'Pago informado por el jugador. Pendiente de validacion admin.',
+          receipt_path: receipt?.path || null,
+          receipt_file_name: receipt?.fileName || null,
         })
         .select(PAYMENT_HISTORY_SELECT)
         .single();
@@ -418,7 +425,7 @@ function MyPlayerProfile() {
       }
       setErrorMessage(paymentReportError.message || 'No se pudo informar el pago.');
     } finally {
-      setPaymentReportSaving(false);
+      setPaymentReportSaving('');
     }
   }
 
@@ -431,7 +438,11 @@ function MyPlayerProfile() {
       return;
     }
 
-    await reportPaymentWithReceipt(selectedFile);
+    await reportPayment({ method: 'Naranja X', receiptFile: selectedFile });
+  }
+
+  async function handleCashPaymentReport() {
+    await reportPayment({ method: 'Efectivo' });
   }
 
   async function handleOpenReceipt(receiptPath) {
@@ -463,6 +474,11 @@ function MyPlayerProfile() {
   const hasReportedCurrentPayment = payments.some(
     (payment) => payment.status === 'reported' && payment.period === currentPeriod
   );
+  const paymentReportDisabled =
+    Boolean(paymentReportSaving) ||
+    effectivePaymentStatus ||
+    hasReportedCurrentPayment ||
+    !monthlyFee;
   const memberId = formatMemberId(player);
   const issueDate = formatDate(player?.created_at);
   const dueDate = formatDate(player?.last_payment_date);
@@ -698,8 +714,8 @@ function MyPlayerProfile() {
           <section className="detail-card member-detail-card">
             <h2>Informar pago</h2>
             <p className="checkout-helper-text">
-              Transferi desde tu banco o billetera a Naranja X y subi el comprobante. El admin
-              valida el pago y ahi tu cuota queda al dia.
+              Si transferiste a Naranja X, subi el comprobante. Si pagaste en efectivo,
+              avisanos desde aca. El admin valida el pago y ahi tu cuota queda al dia.
             </p>
 
             <div className="payment-instructions-card">
@@ -736,7 +752,7 @@ function MyPlayerProfile() {
                   name="payment_receipt"
                   accept="image/png,image/jpeg,image/webp,application/pdf"
                   onChange={handleReceiptFileChange}
-                  disabled={paymentReportSaving || effectivePaymentStatus || hasReportedCurrentPayment}
+                  disabled={paymentReportDisabled}
                 />
                 <small className="file-selection-helper">
                   {receiptFileName
@@ -747,15 +763,10 @@ function MyPlayerProfile() {
               <label
                 htmlFor="payment_receipt"
                 className={`primary-button payment-upload-trigger ${
-                  paymentReportSaving ||
-                  effectivePaymentStatus ||
-                  hasReportedCurrentPayment ||
-                  !monthlyFee
-                    ? 'payment-upload-trigger-disabled'
-                    : ''
+                  paymentReportDisabled ? 'payment-upload-trigger-disabled' : ''
                 }`}
               >
-                {paymentReportSaving
+                {paymentReportSaving === 'Naranja X'
                   ? 'Enviando comprobante...'
                   : effectivePaymentStatus
                     ? 'Cuota al dia'
@@ -763,6 +774,20 @@ function MyPlayerProfile() {
                       ? 'Pago pendiente de validacion'
                       : 'Seleccionar comprobante y enviarlo'}
               </label>
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={handleCashPaymentReport}
+                disabled={paymentReportDisabled}
+              >
+                {paymentReportSaving === 'Efectivo'
+                  ? 'Avisando pago...'
+                  : effectivePaymentStatus
+                    ? 'Cuota al dia'
+                    : hasReportedCurrentPayment
+                      ? 'Pago pendiente de validacion'
+                      : 'Avisar pago en efectivo'}
+              </button>
             </div>
           </section>
 
