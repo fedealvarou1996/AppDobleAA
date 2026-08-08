@@ -96,8 +96,9 @@ function getPaymentStatusLabel(status) {
 }
 
 const NARANJA_PAYMENT_ALIAS =
-  import.meta.env.VITE_NARANJA_PAYMENT_ALIAS || 'Alias pendiente de configurar';
-const NARANJA_PAYMENT_CBU = import.meta.env.VITE_NARANJA_PAYMENT_CBU || '';
+  import.meta.env.VITE_NARANJA_PAYMENT_ALIAS || 'asociacion.aa';
+const NARANJA_PAYMENT_CBU =
+  import.meta.env.VITE_NARANJA_PAYMENT_CBU || '4530000800017541837349';
 const NARANJA_PAYMENT_HOLDER = import.meta.env.VITE_NARANJA_PAYMENT_HOLDER || '';
 
 function MyPlayerProfile() {
