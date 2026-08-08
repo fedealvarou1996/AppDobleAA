@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/useAuth';
 import { supabase } from '../lib/supabaseClient';
@@ -105,6 +105,7 @@ function MyPlayerProfile() {
   const navigate = useNavigate();
   const { user, profile, isPlayer, signOut } = useAuth();
   const [initialPaymentNotice] = useState(getInitialPaymentNotice);
+  const receiptInputRef = useRef(null);
 
   const [player, setPlayer] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -121,7 +122,7 @@ function MyPlayerProfile() {
   const [photoUploading, setPhotoUploading] = useState(false);
   const [jerseyNumberInput, setJerseyNumberInput] = useState('');
   const [jerseySaving, setJerseySaving] = useState(false);
-  const [receiptFile, setReceiptFile] = useState(null);
+  const [receiptFileName, setReceiptFileName] = useState('');
   const [paymentReportSaving, setPaymentReportSaving] = useState(false);
 
   useEffect(() => {
@@ -346,7 +347,9 @@ function MyPlayerProfile() {
   }
 
   function handleReceiptFileChange(event) {
-    setReceiptFile(event.target.files?.[0] || null);
+    const selectedFile = event.target.files?.[0] || null;
+    setReceiptFileName(selectedFile?.name || '');
+    setErrorMessage('');
   }
 
   async function handlePaymentReportSubmit(event) {
@@ -361,6 +364,7 @@ function MyPlayerProfile() {
       return;
     }
 
+    const receiptFile = receiptInputRef.current?.files?.[0] || null;
     const receiptValidationMessage = validatePaymentReceipt(receiptFile);
     if (receiptValidationMessage) {
       setErrorMessage(receiptValidationMessage);
@@ -399,7 +403,7 @@ function MyPlayerProfile() {
       }
 
       setPayments((currentPayments) => [data, ...currentPayments]);
-      setReceiptFile(null);
+      setReceiptFileName('');
       event.target.reset();
 
       const { error: notificationError } = await supabase.functions.invoke(
@@ -720,11 +724,18 @@ function MyPlayerProfile() {
               <div className="form-field">
                 <label>Comprobante</label>
                 <input
+                  ref={receiptInputRef}
                   type="file"
+                  name="payment_receipt"
                   accept="image/png,image/jpeg,image/webp,application/pdf"
                   onChange={handleReceiptFileChange}
                   disabled={paymentReportSaving || effectivePaymentStatus || hasReportedCurrentPayment}
                 />
+                <small className="file-selection-helper">
+                  {receiptFileName
+                    ? `Archivo seleccionado: ${receiptFileName}`
+                    : 'Selecciona una imagen o PDF del comprobante.'}
+                </small>
               </div>
               <button
                 type="submit"
@@ -801,4 +812,5 @@ function MyPlayerProfile() {
 }
 
 export default MyPlayerProfile;
+
 
