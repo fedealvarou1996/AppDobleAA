@@ -59,7 +59,7 @@ function addOneMonth(dateValue) {
 }
 
 function Dashboard() {
-  const { user, profile, isAdmin, signOut } = useAuth();
+  const { user, profile, signOut } = useAuth();
   const navigate = useNavigate();
   const [players, setPlayers] = useState([]);
   const [teams, setTeams] = useState([]);
@@ -236,6 +236,8 @@ function Dashboard() {
       inactivePlayers: inactivePlayers.length,
       paidPlayers: paidPlayers.length,
       pendingPlayers: pendingPlayers.length,
+      paidPercentage:
+        activePlayers.length > 0 ? Math.round((paidPlayers.length / activePlayers.length) * 100) : 0,
       teamCounts,
       upcomingDuePlayers,
       incompleteProfiles: incompleteProfiles.length,
@@ -253,16 +255,43 @@ function Dashboard() {
   return (
     <main className="dashboard-page">
       <header className="dashboard-header">
-        <div>
-          <img className="dashboard-logo" src={appLogo} alt="Logo Asociacion de Atletas" />
-          <p className="eyebrow">Panel administrativo</p>
-          <h1>Asociacion de Atletas</h1>
-          <p className="muted">Sesion iniciada correctamente.</p>
+        <div className="dashboard-hero-copy">
+          <div className="dashboard-title-row">
+            <img className="dashboard-logo" src={appLogo} alt="Logo Asociacion de Atletas" />
+            <div>
+              <p className="eyebrow">Panel administrativo</p>
+              <h1>Asociacion de Atletas</h1>
+            </div>
+          </div>
+          <p className="muted">
+            Control rapido de cuotas, fichas, equipos y pagos pendientes.
+          </p>
+          <div className="dashboard-hero-actions">
+            <button
+              type="button"
+              className="primary-button"
+              onClick={() => navigate('/players')}
+            >
+              Gestionar jugadores
+            </button>
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={() => navigate('/players/new')}
+            >
+              Nuevo jugador
+            </button>
+          </div>
         </div>
 
-        <button className="secondary-button" onClick={handleLogout}>
-          Cerrar sesion
-        </button>
+        <div className="dashboard-session-card">
+          <span className="detail-label">Sesion admin</span>
+          <strong>{profile?.role ?? 'Sin rol'}</strong>
+          <small>{user?.email}</small>
+          <button className="secondary-button small-button" onClick={handleLogout}>
+            Cerrar sesion
+          </button>
+        </div>
       </header>
 
       <section className="dashboard-summary-section">
@@ -297,7 +326,7 @@ function Dashboard() {
               <article className="summary-card">
                 <span>Cuota al dia</span>
                 <strong>{summary.paidPlayers}</strong>
-                <small>Periodo vigente</small>
+                <small>{summary.paidPercentage}% del plantel activo</small>
               </article>
               <article className="summary-card">
                 <span>Cuota pendiente</span>
@@ -400,7 +429,7 @@ function Dashboard() {
                             <strong>{playerName || 'Jugador sin nombre'}</strong>
                             <small>
                               {payment.period || formatDate(payment.payment_date)}
-                              {payment.player?.category ? ` · ${payment.player.category}` : ''}
+                              {payment.player?.category ? ` - ${payment.player.category}` : ''}
                             </small>
                           </span>
                           <span className="payment-notification-side">
@@ -422,22 +451,10 @@ function Dashboard() {
       </section>
 
       <section className="dashboard-grid">
-        <article className="info-card">
-          <h2>Usuario</h2>
-          <p>
-            <strong>Email:</strong> {user?.email}
-          </p>
-          <p>
-            <strong>Rol:</strong> {profile?.role ?? 'Sin rol cargado'}
-          </p>
-          <p>
-            <strong>Permisos admin:</strong> {isAdmin ? 'Si' : 'No'}
-          </p>
-        </article>
-
         <article className="info-card module-card">
+          <p className="eyebrow">Operacion</p>
           <h2>Modulo Jugadores</h2>
-          <p>Administra el listado de atletas, altas, edicion, busqueda y filtros.</p>
+          <p>Administra atletas, fichas, equipos, pagos y exportaciones desde un solo lugar.</p>
           <div className="dashboard-actions button-row">
             <button
               type="button"
@@ -455,9 +472,21 @@ function Dashboard() {
             </button>
           </div>
         </article>
+
+        <article className="info-card dashboard-priority-card">
+          <p className="eyebrow">Prioridad</p>
+          <h2>Pagos por revisar</h2>
+          <strong>{paymentNotifications.length}</strong>
+          <p>
+            {paymentNotifications.length
+              ? 'Hay comprobantes esperando aprobacion.'
+              : 'No hay comprobantes pendientes ahora.'}
+          </p>
+        </article>
       </section>
     </main>
   );
 }
 
 export default Dashboard;
+

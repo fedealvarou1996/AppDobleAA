@@ -95,3 +95,28 @@ Notas:
 - `MERCADOPAGO_WEBHOOK_URL` es opcional, pero recomendado para tener confirmacion automatica.
 - `MERCADOPAGO_WEBHOOK_SECRET` es obligatorio para validar que el webhook venga de Mercado Pago.
 - Para salir a produccion, `MERCADOPAGO_ACCESS_TOKEN` debe ser productivo y `MERCADOPAGO_CHECKOUT_MODE` debe quedar en `production`.
+
+## Avisos por email de pagos informados
+
+Cuando un jugador informa un pago con comprobante, la app puede enviar un email automatico al admin.
+
+Funcion:
+
+```bash
+supabase functions deploy notify-payment-reported
+```
+
+Secrets necesarios:
+
+```bash
+supabase secrets set RESEND_API_KEY=re_...
+supabase secrets set PAYMENT_NOTIFICATION_EMAIL=admin@dominio.com
+supabase secrets set PAYMENT_NOTIFICATION_FROM="Asociacion de Atletas <pagos@tudominio.com>"
+supabase secrets set APP_BASE_URL=https://tu-app.com
+```
+
+Notas:
+
+- `PAYMENT_NOTIFICATION_FROM` debe ser un remitente habilitado en Resend.
+- Si todavia no tenes dominio verificado en Resend, se puede probar con el remitente de testing que permita tu cuenta.
+- Si el email falla, el pago informado no se pierde: queda pendiente de validacion en el dashboard admin.

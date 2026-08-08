@@ -400,6 +400,18 @@ function MyPlayerProfile() {
       setPayments((currentPayments) => [data, ...currentPayments]);
       setReceiptFile(null);
       event.target.reset();
+
+      const { error: notificationError } = await supabase.functions.invoke(
+        'notify-payment-reported',
+        {
+          body: { paymentId: data.id },
+        }
+      );
+
+      if (notificationError) {
+        console.error('Error enviando notificacion de pago:', notificationError);
+      }
+
       setSuccessMessage('Pago informado correctamente. Queda pendiente de validacion.');
     } catch (paymentReportError) {
       console.error('Error informando pago:', paymentReportError);
